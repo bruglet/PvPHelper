@@ -31,7 +31,7 @@ namespace PvPHelper
                 return 100;
             if (attacker == DamageActor.EngineerTurret && victim == DamageActor.Player) return engiTurret;
             if (attacker == DamageActor.EngineerTurret && victim == DamageActor.EngineerTurret) return 100;
-            return attacker == DamageActor.Drone && victim == DamageActor.Player ? dvp : pvp;
+            return attacker == DamageActor.Drone && (victim == DamageActor.Player || victim == DamageActor.Drone) ? dvp : pvp;
         }
     }
 }

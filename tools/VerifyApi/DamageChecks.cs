@@ -35,7 +35,7 @@ internal static class DamageChecks
         Equal(classify.Invoke(null, new object[] { false, false, false }), other, "Other bodies stay outside the rules");
         // The expected matrix is the requested behavior, independent of the implementation.
         object[] actors = { player, drone, turret, other };
-        int[,] expected = { { 50, 50, 50, 100 }, { 15, 50, 50, 100 }, { 25, 50, 100, 100 }, { 100, 100, 100, 100 } };
+        int[,] expected = { { 50, 50, 50, 100 }, { 15, 15, 50, 100 }, { 25, 50, 100, 100 }, { 100, 100, 100, 100 } };
         for (int a = 0; a < actors.Length; a++)
             for (int v = 0; v < actors.Length; v++)
             {
@@ -78,7 +78,12 @@ internal static class DamageChecks
         Equal(Get(turret, player, engi: 0), 0, "Engi Turret off");
         Equal(Get(turret, player, engi: 200), 200, "Engi Turret maximum");
         Equal(Get(turret, drone, engi: 0), 50, "Engi Turret off does not block turret -> drone");
-        Equal(Get(drone, drone, pvp: 85, dvp: 35), 85, "Drone -> drone follows configured PVP");
+        Equal(Get(drone, drone, pvp: 85, dvp: 35), 35, "Drone -> drone follows configured DVP");
+        Equal(Get(drone, drone, dvp: 0), 0, "Drone -> drone disabled by DVP");
+        Equal(Get(drone, drone, pvp: 0, dvp: 35), 35, "Drone duels independent of PVP");
+        Equal(Get(player, drone, pvp: 85, dvp: 0), 85, "Player -> drone independent of DVP");
+        Equal(Get(remote, drone, pvp: 85, dvp: 0), 85, "Remote player -> drone independent of DVP");
+        Equal(Get(drone, remote, pvp: 85, dvp: 35), 35, "AI drone -> remote player follows DVP");
         Equal(Get(drone, player, pvp: 85, dvp: 35), 35, "Drone -> player follows configured DVP");
         Equal(Get(player, drone, pvp: 85, dvp: 35), 85, "Player -> drone follows configured PVP");
         Equal(Get(player, player, teams: false), 100, "Non-player factions");

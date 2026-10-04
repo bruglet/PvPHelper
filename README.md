@@ -16,7 +16,7 @@ This controls the shared difficulty coefficient and ambient monster level togeth
 | --- | --- | --- |
 | Player → player | PVP Damage | 50% |
 | Player → catalog drone | PVP Damage | 50% |
-| Catalog drone → catalog drone | PVP Damage | 50% |
+| Catalog drone → catalog drone | DVP Damage | 15% |
 | Catalog drone → player | DVP Damage | 15% |
 | Engineer turret → player | Engi Turret | 25% |
 | Player → Engineer turret | PVP Damage | 50% |
@@ -62,7 +62,7 @@ Use a separate profile. Record the game build, mod versions, and host/client log
 4. Activate a teleporter from each color. Move different combinations into and out of its radius and check normal charging, the HUD objective, and Focused Convergence. Verify remote-operation drones do not charge, matching vanilla. Check another player holdout zone as well.
 5. Let all players die before the teleporter starts. Confirm stage travel, respawning with items and the selected teams, and the final-stage revival fallback. Complete a teleporter normally and confirm normal travel.
 6. Verify **PVP Damage**, **DVP Damage**, and **Engi Turret** on mouse and controller, including 0%, 100%, and 200%, rapid edits, Ready/Unready, and launch countdown locking. Also verify **Monster Scaling** at 0%, 75%, and 100%. Only the host can edit; remote clients and late joiners must display all four host values. Start a fresh session and confirm the defaults return.
-7. Test the damage table across every opposing color pair with survivors, AI catalog drones, purchased Gunner Turrets, both Engineer turret types, and remote-operation bodies as both attackers and victims. Confirm drone → drone follows PVP. Check Engineer turret → player at 25% and another configured value, player → turret and turret ↔ drone following PVP, and turret ↔ enemy retaining native damage. Repeat against remote-controlled players. Use matching setups at 100% for comparison, accounting for armor, damage floors, and protection caps.
+7. Test the damage table across every opposing color pair with survivors, AI catalog drones, purchased Gunner Turrets, both Engineer turret types, and remote-operation bodies as both attackers and victims. Confirm AI catalog drone → drone follows DVP (15% by default), player → drone follows PVP, and remote-controlled drone → AI drone follows PVP. Check Engineer turret → player at 25% and another configured value, player → turret and turret ↔ drone following PVP, and turret ↔ enemy retaining native damage. Repeat against remote-controlled players. Use matching setups at 100% for comparison, accounting for armor, damage floors, and protection caps.
 8. Test melee, bullets, mixed-target explosions, crits, Expose, percentage-health attacks, armor bypass, calculation bypass, DoTs, item proc chains, shields/barrier, and delayed damage. Delayed damage must not be multiplied again; 0% must block matching damaging hits. Recheck the reward and teleporter scenarios after changing damage settings.
 
 9. With 300 maximum combined health and no defenses, test a very large player hit: it should deal at most 200 damage. Test a smaller hit, a lethal follow-up against a wounded player, negative armor, calculation bypass, shields/barrier, DoTs, delayed damage, and native player execution effects. Repeat with remote-controlled drones. Enemy, AI drone, and Engineer turret attacks must retain their existing behavior.
