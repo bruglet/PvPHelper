@@ -10,7 +10,7 @@ var plugin = AssemblyLoadContext.Default.LoadFromAssemblyPath(Path.GetFullPath(a
 using var pluginModule = Mono.Cecil.ModuleDefinition.ReadModule(Path.GetFullPath(args[0]));
 using var gameModule = Mono.Cecil.ModuleDefinition.ReadModule(Path.Combine(dirs[0], "RoR2.dll"));
 var patches = 0;
-foreach (var typeName in new[] { "PlayerTeams+AssignBeforeBodySpawn", "TeamSelector+AddSelector", "SharedRewards+ShareMoney", "SharedRewards+ShareExperience", "SharedHoldouts+CountAllPlayers", "SharedHoldouts+CountAllPlayersInRadius", "SharedHoldouts+ShowChargeObjective", "SharedHoldouts+ShareFocusedConvergence", "DamageScaling+RejectZeroDamage", "DamageScaling+ScaleCalculatedDamage" }) {
+foreach (var typeName in new[] { "PlayerTeams+AssignBeforeBodySpawn", "TeamSelector+AddSelector", "SharedRewards+ShareMoney", "SharedRewards+ShareExperience", "SharedHoldouts+CountAllPlayers", "SharedHoldouts+CountAllPlayersInRadius", "SharedHoldouts+ShowChargeObjective", "SharedHoldouts+ShareFocusedConvergence", "DamageScaling+RejectZeroDamage", "DamageScaling+ScaleCalculatedDamage", "DifficultyScaling+SlowGrowth" }) {
     var type = plugin.GetType("PvPHelper." + typeName)!;
     var attrs = type.GetCustomAttributes().Where(a => a.GetType().Name == "HarmonyPatch").ToArray();
     if (attrs.Length == 0) continue;
@@ -81,14 +81,18 @@ if (copyList.Count != 4) throw new Exception("Snapshot count mismatch");
 for (byte i = 0; i < 4; i++) AssertChoice(copyList[i]!, (uint)(i + 100), i);
 if ((ushort)stateType.GetField("EngiTurretPercent")!.GetValue(snapshot)! != 25)
     throw new Exception("Engineer turret default mismatch");
-foreach (var pair in new[] { (50, 15, 25), (0, 200, 0), (200, 0, 200), (85, 35, 40) }) {
+if ((ushort)stateType.GetField("MonsterScalingPercent")!.GetValue(snapshot)! != 75)
+    throw new Exception("Monster scaling default mismatch");
+foreach (var pair in new[] { (50, 15, 25, 75), (0, 200, 0, 0), (200, 0, 200, 100), (85, 35, 40, 50) }) {
     stateType.GetField("PvpPercent")!.SetValue(snapshot, (ushort)pair.Item1);
     stateType.GetField("DvpPercent")!.SetValue(snapshot, (ushort)pair.Item2);
     stateType.GetField("EngiTurretPercent")!.SetValue(snapshot, (ushort)pair.Item3);
+    stateType.GetField("MonsterScalingPercent")!.SetValue(snapshot, (ushort)pair.Item4);
     var copy = RoundTrip(snapshot);
     if ((ushort)stateType.GetField("PvpPercent")!.GetValue(copy)! != pair.Item1 ||
         (ushort)stateType.GetField("DvpPercent")!.GetValue(copy)! != pair.Item2 ||
-        (ushort)stateType.GetField("EngiTurretPercent")!.GetValue(copy)! != pair.Item3)
+        (ushort)stateType.GetField("EngiTurretPercent")!.GetValue(copy)! != pair.Item3 ||
+        (ushort)stateType.GetField("MonsterScalingPercent")!.GetValue(copy)! != pair.Item4)
         throw new Exception("Damage settings wire round trip mismatch");
     var choices = (System.Collections.IList)stateType.GetField("Choices")!.GetValue(copy)!;
     if (choices.Count != 4) throw new Exception("Settings corrupted team snapshot");

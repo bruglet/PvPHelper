@@ -14,6 +14,8 @@ internal static class DamageChecks
         MethodInfo classify = policy.GetMethod("Classify", flags)!;
         MethodInfo percent = policy.GetMethod("GetPercent", flags)!;
         MethodInfo valid = policy.GetMethod("IsValidPercent", flags)!;
+        MethodInfo shouldCap = policy.GetMethod("ShouldCap", flags)!;
+        MethodInfo capHit = policy.GetMethod("CapHit", flags)!;
         object player = Enum.Parse(actor, "Player"), drone = Enum.Parse(actor, "Drone"),
             turret = Enum.Parse(actor, "EngineerTurret"), other = Enum.Parse(actor, "Other");
         void Equal(object? actual, object expected, string description)
@@ -35,7 +37,28 @@ internal static class DamageChecks
         object[] actors = { player, drone, turret, other };
         int[,] expected = { { 50, 50, 50, 100 }, { 15, 50, 50, 100 }, { 25, 50, 100, 100 }, { 100, 100, 100, 100 } };
         for (int a = 0; a < actors.Length; a++)
-            for (int v = 0; v < actors.Length; v++) Equal(Get(actors[a], actors[v]), expected[a, v], $"{actors[a]} -> {actors[v]}");
+            for (int v = 0; v < actors.Length; v++)
+            {
+                Equal(Get(actors[a], actors[v]), expected[a, v], $"{actors[a]} -> {actors[v]}");
+                Equal(shouldCap.Invoke(null, new[] { actors[a], actors[v], true, false }), a == 0 && v == 0,
+                    $"Cap scope {actors[a]} -> {actors[v]}");
+            }
+        Equal(shouldCap.Invoke(null, new[] { player, player, false, false }), false, "No enemy cap");
+        Equal(shouldCap.Invoke(null, new[] { player, player, true, true }), false, "No self cap");
+        Equal(shouldCap.Invoke(null, new[] { remote, player, true, false }), true, "Remote outgoing cap");
+        Equal(shouldCap.Invoke(null, new[] { player, remote, true, false }), true, "Remote incoming cap");
+        float Cap(float damage, float max) => (float)capHit.Invoke(null, new object[] { damage, max })!;
+        void Near(float actual, float expectedValue, string description)
+        {
+            if (Math.Abs(actual - expectedValue) > .001f) throw new Exception(description + $": {actual} != {expectedValue}");
+        }
+        Near(Cap(10000, 300), 200, "Large hit capped");
+        Near(Cap(50, 300), 50, "Small hit unchanged");
+        Near(Cap(0, 300), 0, "Zero unchanged");
+        Near(Cap(10000, 1), 2f / 3f, "Cap below native minimum damage");
+        Near(Cap(10000, 150), 100, "Changed max health changes cap");
+        // Each hit is independent: a wounded survivor can still die to another hit.
+        if (100 - Cap(10000, 300) >= 0) throw new Exception("Per-hit cap incorrectly prevents lethal follow-up");
         Equal(Get(remote, player), 50, "Remote drone outgoing PVP");
         Equal(Get(drone, remote), 15, "Remote drone incoming DVP");
         Equal(Get(remote, drone), 50, "Remote drone -> AI drone PVP");
@@ -73,27 +96,56 @@ internal static class DamageChecks
         Equal(getSetting.Invoke(null, new[] { Enum.Parse(setting, "Pvp") }), (ushort)50, "PVP setting default");
         Equal(getSetting.Invoke(null, new[] { Enum.Parse(setting, "Dvp") }), (ushort)15, "DVP setting default");
         Equal(getSetting.Invoke(null, new[] { Enum.Parse(setting, "EngiTurret") }), (ushort)25, "Engi Turret setting default");
-        foreach (string property in new[] { "PvpPercent", "DvpPercent", "EngiTurretPercent" })
+        Equal(getSetting.Invoke(null, new[] { Enum.Parse(setting, "MonsterScaling") }), (ushort)75, "Monster scaling default");
+        MethodInfo validSetting = settings.GetMethod("IsValid", flags)!;
+        object monsterSetting = Enum.Parse(setting, "MonsterScaling");
+        foreach (int value in new[] { 0, 5, 50, 75, 100 })
+            Equal(validSetting.Invoke(null, new[] { monsterSetting, value }), true, "Valid monster scaling");
+        foreach (int value in new[] { -5, 1, 105, 200, 65535 })
+            Equal(validSetting.Invoke(null, new[] { monsterSetting, value }), false, "Invalid monster scaling");
+        foreach (string property in new[] { "PvpPercent", "DvpPercent", "EngiTurretPercent", "MonsterScalingPercent" })
             settings.GetProperty(property, flags)!.GetSetMethod(true)!.Invoke(null, new object[] { (ushort)200 });
         settings.GetMethod("Reset", flags)!.Invoke(null, null);
         Equal(getSetting.Invoke(null, new[] { Enum.Parse(setting, "Pvp") }), (ushort)50, "Fresh-session PVP default");
         Equal(getSetting.Invoke(null, new[] { Enum.Parse(setting, "Dvp") }), (ushort)15, "Fresh-session DVP default");
         Equal(getSetting.Invoke(null, new[] { Enum.Parse(setting, "EngiTurret") }), (ushort)25, "Fresh-session Engi Turret default");
-        Console.WriteLine("PASS damage matrix, remote-control precedence, exclusions and percentage bounds");
+        Equal(getSetting.Invoke(null, new[] { monsterSetting }), (ushort)75, "Fresh-session monster scaling default");
+        Console.WriteLine("PASS damage matrix, per-hit cap, remote-control precedence, exclusions and percentage bounds");
+
+        Type difficulty = plugin.GetType("PvPHelper.DifficultyScaling")!;
+        MethodInfo scale = difficulty.GetMethod("ScaleProgress", flags, null, new[] { typeof(float), typeof(int) }, null)!;
+        float Scale(float progress, int value) => (float)scale.Invoke(null, new object[] { progress, value })!;
+        Near(Scale(1200, 75), 900, "75% elapsed time input");
+        Near(Scale(4, 75), 3, "75% stage exponent");
+        Near(Scale(0, 75), 0, "Starting difficulty unchanged");
+        foreach (int value in new[] { 0, 25, 75, 100 })
+        {
+            foreach (float progress in new[] { 0f, 1f, 4f, 10f, 600f, 3600f })
+                Near(Scale(progress, value), progress * value / 100f, "Difficulty progress percentage");
+        }
+        double Coefficient(float seconds, float stages, int value) =>
+            (1 + .0506 * 3 * Math.Floor(Scale(seconds, value) / 60f)) * Math.Pow(1.15, Scale(stages, value));
+        if (!(Coefficient(0, 4, 75) < Coefficient(0, 4, 100))) throw new Exception("Stage-only growth was not slowed");
+        if (!(Coefficient(1200, 0, 75) < Coefficient(1200, 0, 100))) throw new Exception("Time-only growth was not slowed");
+        Near((float)Coefficient(3600, 10, 0), 1, "0% disables both growth inputs");
+        Console.WriteLine("PASS difficulty time and stage growth, 75% default, 0% and 100% boundaries");
 
         VerifyTranspiler(plugin, game);
+        VerifyTranspiler(plugin, game, true);
     }
 
-    private static void VerifyTranspiler(Assembly plugin, ModuleDefinition game)
+    private static void VerifyTranspiler(Assembly plugin, ModuleDefinition game, bool difficulty = false)
     {
         // Feed the real compiled transpiler real game instructions. No Unity objects or
         // Harmony patch application is needed, so this can run outside the game on .NET 8.
-        Type patch = plugin.GetType("PvPHelper.DamageScaling+ScaleCalculatedDamage")!;
+        string nativeType = difficulty ? "RoR2.Run" : "RoR2.HealthComponent";
+        string nativeMethod = difficulty ? "RecalculateDifficultyCoefficentInternal" : "TakeDamageProcess";
+        Type patch = plugin.GetType(difficulty ? "PvPHelper.DifficultyScaling+SlowGrowth" : "PvPHelper.DamageScaling+ScaleCalculatedDamage")!;
         Type instructionType = Assembly.Load("0Harmony").GetType("HarmonyLib.CodeInstruction")!;
         var input = (IList)Activator.CreateInstance(typeof(List<>).MakeGenericType(instructionType))!;
-        var method = game.Types.Single(t => t.FullName == "RoR2.HealthComponent").Methods.Single(m => m.Name == "TakeDamageProcess");
-        MethodInfo runtimeMethod = Assembly.Load("RoR2").GetType("RoR2.HealthComponent")!
-            .GetMethod("TakeDamageProcess", BindingFlags.NonPublic | BindingFlags.Instance)!;
+        var method = game.Types.Single(t => t.FullName == nativeType).Methods.Single(m => m.Name == nativeMethod);
+        MethodInfo runtimeMethod = Assembly.Load("RoR2").GetType(nativeType)!
+            .GetMethod(nativeMethod, BindingFlags.NonPublic | BindingFlags.Instance)!;
         Module module = runtimeMethod.Module;
         var generator = new DynamicMethod("DamageHookCheck", typeof(void), Type.EmptyTypes).GetILGenerator();
         var locals = runtimeMethod.GetMethodBody()!.LocalVariables.Select(l => generator.DeclareLocal(l.LocalType, l.IsPinned)).ToArray();
@@ -122,21 +174,6 @@ internal static class DamageChecks
         }
         var transpile = patch.GetMethod("Transpiler", BindingFlags.NonPublic | BindingFlags.Static)!;
         var output = ((IEnumerable)transpile.Invoke(null, new object[] { input })!).Cast<object>().ToArray();
-        int FindCall(string name) => Array.FindIndex(output, i => operandField.GetValue(i) is MethodInfo called &&
-            called.DeclaringType?.FullName == "PvPHelper.DamageScaling" && called.Name == name);
-        int normal = FindCall("ScaleDamage"), bypass = FindCall("ScaleBypassDamage");
-        int armor = Array.FindIndex(output, i => operandField.GetValue(i) is MethodInfo called &&
-            called.DeclaringType?.FullName == "RoR2.CharacterBody" && called.Name == "get_armor");
-        if (bypass < 0 || normal <= bypass || armor <= normal || output.Length != input.Count + 10)
-            throw new Exception("Damage injection count or ordering mismatch");
-        if (output.Count(i => operandField.GetValue(i) is MethodInfo called &&
-            called.DeclaringType?.FullName == "PvPHelper.DamageScaling") != 2)
-            throw new Exception("Damage scale call duplicated");
-        if (output.Count(i => (OpCode)opcodeField.GetValue(i)! == OpCodes.Stfld && operandField.GetValue(i) is FieldInfo field &&
-            field.DeclaringType?.FullName == "RoR2.DamageInfo" && field.Name == "damage") !=
-            input.Cast<object>().Count(i => (OpCode)opcodeField.GetValue(i)! == OpCodes.Stfld && operandField.GetValue(i) is FieldInfo field &&
-            field.DeclaringType?.FullName == "RoR2.DamageInfo" && field.Name == "damage"))
-            throw new Exception("Unexpected damage-info mutation");
         var originalLabels = labels.Values.ToArray();
         var outputLabels = output.SelectMany(i => ((IList)labelField.GetValue(i)!).Cast<Label>()).ToArray();
         if (outputLabels.Length != originalLabels.Length || originalLabels.Any(l => outputLabels.Count(o => o.Equals(l)) != 1))
@@ -149,6 +186,39 @@ internal static class DamageChecks
             throw new Exception("Unexpected game shape was accepted");
         }
         catch (InvalidOperationException) { }
-        Console.WriteLine("PASS actual damage transpiler: native IL, calculation order, label preservation and mismatch rejection");
+        if (difficulty)
+        {
+            int[] calls = Enumerable.Range(0, output.Length).Where(i => operandField.GetValue(output[i]) is MethodInfo called &&
+                called.DeclaringType?.FullName == "PvPHelper.DifficultyScaling").ToArray();
+            if (calls.Length != 3 || output.Length != input.Count + 3)
+                throw new Exception("Difficulty hook must scale one stopwatch and both stage exponents");
+            if (operandField.GetValue(output[calls[0] - 1]) is not MethodInfo clock || clock.Name != "GetRunStopwatch")
+                throw new Exception("Difficulty stopwatch input mismatch");
+            foreach (int call in calls.Skip(1))
+                if ((OpCode)opcodeField.GetValue(output[call - 1])! != OpCodes.Conv_R4 ||
+                    operandField.GetValue(output[call - 2]) is not FieldInfo stages || stages.Name != "stageClearCount")
+                    throw new Exception("Difficulty stage input mismatch");
+            Console.WriteLine("PASS actual difficulty transpiler: native time and stage inputs, labels and mismatch rejection");
+            return;
+        }
+        int FindCall(string name) => Array.FindIndex(output, i => operandField.GetValue(i) is MethodInfo called &&
+            called.DeclaringType?.FullName == "PvPHelper.DamageScaling" && called.Name == name);
+        int normal = FindCall("ScaleDamage"), bypass = FindCall("ScaleBypassDamage");
+        int armor = Array.FindIndex(output, i => operandField.GetValue(i) is MethodInfo called &&
+            called.DeclaringType?.FullName == "RoR2.CharacterBody" && called.Name == "get_armor");
+        int cap = FindCall("CapDamage"), execution = FindCall("AllowExecution"), threshold = FindCall("LimitExecutionThreshold");
+        int split = Array.FindIndex(output, i => operandField.GetValue(i) is MethodInfo called && called.Name == "SecondHalfOfDelayedDamage");
+        if (bypass < 0 || normal <= bypass || armor <= normal || cap <= armor || split <= cap || execution <= split || threshold <= execution ||
+            output.Length != input.Count + 28)
+            throw new Exception("Damage injection count or ordering mismatch");
+        if (output.Count(i => operandField.GetValue(i) is MethodInfo called &&
+            called.DeclaringType?.FullName == "PvPHelper.DamageScaling") != 5)
+            throw new Exception("Damage scale call duplicated");
+        if (output.Count(i => (OpCode)opcodeField.GetValue(i)! == OpCodes.Stfld && operandField.GetValue(i) is FieldInfo field &&
+            field.DeclaringType?.FullName == "RoR2.DamageInfo" && field.Name == "damage") !=
+            input.Cast<object>().Count(i => (OpCode)opcodeField.GetValue(i)! == OpCodes.Stfld && operandField.GetValue(i) is FieldInfo field &&
+            field.DeclaringType?.FullName == "RoR2.DamageInfo" && field.Name == "damage"))
+            throw new Exception("Unexpected damage-info mutation");
+        Console.WriteLine("PASS actual damage transpiler: scaling, final cap, delayed damage and execution order, labels and mismatch rejection");
     }
 }

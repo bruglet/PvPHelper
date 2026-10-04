@@ -16,7 +16,7 @@ namespace PvPHelper
         private RectTransform source = null!;
         private RectTransform rect = null!;
         private RectTransform damagePanel = null!;
-        private static readonly string[] damageNames = { "PVP Damage", "DVP Damage", "Engi Turret" };
+        private static readonly string[] damageNames = { "PVP Damage", "DVP Damage", "Engi Turret", "Monster Scaling" };
         private readonly MPButton[] decrease = new MPButton[damageNames.Length];
         private readonly MPButton[] increase = new MPButton[damageNames.Length];
         private readonly TMP_Text[] damageLabels = new TMP_Text[damageNames.Length];
@@ -123,7 +123,7 @@ namespace PvPHelper
         private static void Adjust(DamageSetting setting, int change)
         {
             int value = DamageSettings.Get(setting);
-            DamageSettings.Set(setting, System.Math.Max(0, System.Math.Min(DamagePolicy.Maximum, value + change)));
+            DamageSettings.Set(setting, System.Math.Max(0, System.Math.Min(DamageSettings.Maximum(setting), value + change)));
         }
 
         private void Cycle()
@@ -184,7 +184,7 @@ namespace PvPHelper
                 int value = DamageSettings.Get((DamageSetting)i);
                 damageLabels[i].text = damageNames[i] + ": " + value + "%";
                 decrease[i].interactable = DamageSettings.CanEdit && value > 0;
-                increase[i].interactable = DamageSettings.CanEdit && value < DamagePolicy.Maximum;
+                increase[i].interactable = DamageSettings.CanEdit && value < DamageSettings.Maximum((DamageSetting)i);
             }
             for (int i = 0; i < damageNames.Length; i++)
             {

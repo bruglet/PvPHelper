@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.6.0
+
+- Capped each player → player hit at two-thirds of maximum HP plus maximum shields after defenses; remote-controlled drones count as players.
+- Suppressed native executions on capped player hits; repeated hits can still kill.
+- Added the host-controlled Monster Scaling lobby selector, defaulting to 75%, with 0–100% adjustment in 5-point steps.
+- Slowed both elapsed-time growth and the cleared-stage exponent in the native difficulty coefficient and ambient monster level formulas.
+- Synchronized the fourth setting with lobby snapshots and retained native starting difficulty, run time, and stage count.
+- Extended wire-format, cap, scaling, and native transpiler checks; live verification of these additions is pending.
+
 ## 0.5.0
 
 - Added the host-controlled Engi Turret lobby selector, defaulting to 25%.
