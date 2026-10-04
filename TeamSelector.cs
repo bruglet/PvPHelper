@@ -15,6 +15,10 @@ namespace PvPHelper
         private TMP_Text label = null!;
         private RectTransform source = null!;
         private RectTransform rect = null!;
+        private RectTransform damagePanel = null!;
+        private readonly MPButton[] decrease = new MPButton[2];
+        private readonly MPButton[] increase = new MPButton[2];
+        private readonly TMP_Text[] damageLabels = new TMP_Text[2];
         private Navigation readyNavigation;
         private Navigation unreadyNavigation;
         private NetworkUser? requestingUser;
@@ -31,28 +35,94 @@ namespace PvPHelper
             controller = GetComponent<CharacterSelectController>();
             if (!controller.readyButton) { enabled = false; return; }
             source = (RectTransform)controller.readyButton.transform;
-            button = Instantiate(controller.readyButton, source.parent);
-            button.name = "PvPHelperTeamSelector";
-            button.gameObject.SetActive(false);
-            button.onClick = new Button.ButtonClickedEvent();
-            button.onFindSelectableLeft = new UnityEvent();
-            button.onFindSelectableRight = new UnityEvent();
-            button.onSelect = new UnityEvent();
-            button.onDeselect = new UnityEvent();
-            button.onDebugSelect = new UnityEvent();
-            button.defaultFallbackButton = false;
-            if (button is HGButton hg) hg.updateTextOnHover = false;
-            foreach (LanguageTextMeshController text in button.GetComponentsInChildren<LanguageTextMeshController>(true))
-                text.enabled = false;
+            button = CreateButton("PvPHelperTeamSelector", source.parent);
             label = button.GetComponentInChildren<TMP_Text>(true);
             if (!label) { Destroy(button.gameObject); enabled = false; return; }
             rect = (RectTransform)button.transform;
-            var layout = button.GetComponent<LayoutElement>() ?? button.gameObject.AddComponent<LayoutElement>();
-            layout.ignoreLayout = true;
             button.onClick.AddListener(Cycle);
+            CreateDamageRows();
             readyNavigation = controller.readyButton.navigation;
             unreadyNavigation = controller.unreadyButton ? controller.unreadyButton.navigation : default;
             button.gameObject.SetActive(true);
+        }
+
+        private MPButton CreateButton(string name, Transform parent)
+        {
+            MPButton result = Instantiate(controller.readyButton, parent);
+            result.name = name;
+            result.gameObject.SetActive(false);
+            // Remove serialized Ready actions as well as runtime listeners from the clone.
+            result.onClick = new Button.ButtonClickedEvent();
+            result.onFindSelectableLeft = new UnityEvent();
+            result.onFindSelectableRight = new UnityEvent();
+            result.onSelect = new UnityEvent();
+            result.onDeselect = new UnityEvent();
+            result.onDebugSelect = new UnityEvent();
+            result.defaultFallbackButton = false;
+            if (result is HGButton hg) hg.updateTextOnHover = false;
+            foreach (LanguageTextMeshController text in result.GetComponentsInChildren<LanguageTextMeshController>(true))
+                text.enabled = false;
+            var layout = result.GetComponent<LayoutElement>() ?? result.gameObject.AddComponent<LayoutElement>();
+            layout.ignoreLayout = true;
+            return result;
+        }
+
+        private void CreateDamageRows()
+        {
+            damagePanel = (RectTransform)new GameObject("PvPHelperDamageSettings", typeof(RectTransform), typeof(LayoutElement)).transform;
+            damagePanel.SetParent(source.parent, false);
+            damagePanel.GetComponent<LayoutElement>().ignoreLayout = true;
+            for (int i = 0; i < 2; i++)
+            {
+                bool dvp = i == 1;
+                var row = (RectTransform)new GameObject(dvp ? "DVP Damage" : "PVP Damage", typeof(RectTransform)).transform;
+                row.SetParent(damagePanel, false);
+                row.anchorMin = new Vector2(0f, dvp ? 0f : .5f);
+                row.anchorMax = new Vector2(1f, dvp ? .5f : 1f);
+                row.offsetMin = new Vector2(0f, 2f);
+                row.offsetMax = new Vector2(0f, -2f);
+                decrease[i] = CreateArrow(row, "Decrease", "<", 0f, .16f);
+                increase[i] = CreateArrow(row, "Increase", ">", .84f, 1f);
+                decrease[i].onClick.AddListener(() => Adjust(dvp, -DamagePolicy.Step));
+                increase[i].onClick.AddListener(() => Adjust(dvp, DamagePolicy.Step));
+
+                var text = new GameObject("Value", typeof(RectTransform), typeof(TextMeshProUGUI)).GetComponent<TextMeshProUGUI>();
+                text.transform.SetParent(row, false);
+                text.font = label.font;
+                text.fontSharedMaterial = label.fontSharedMaterial;
+                text.fontSize = label.fontSize * .8f;
+                text.enableAutoSizing = true;
+                text.fontSizeMin = 10f;
+                text.fontSizeMax = label.fontSize;
+                text.alignment = TextAlignmentOptions.Center;
+                text.color = Color.white;
+                text.raycastTarget = false;
+                text.rectTransform.anchorMin = new Vector2(.17f, 0f);
+                text.rectTransform.anchorMax = new Vector2(.83f, 1f);
+                text.rectTransform.offsetMin = Vector2.zero;
+                text.rectTransform.offsetMax = Vector2.zero;
+                damageLabels[i] = text;
+            }
+        }
+
+        private MPButton CreateArrow(RectTransform row, string name, string caption, float min, float max)
+        {
+            MPButton arrow = CreateButton(name, row);
+            var arrowRect = (RectTransform)arrow.transform;
+            arrowRect.anchorMin = new Vector2(min, 0f);
+            arrowRect.anchorMax = new Vector2(max, 1f);
+            arrowRect.offsetMin = Vector2.zero;
+            arrowRect.offsetMax = Vector2.zero;
+            TMP_Text text = arrow.GetComponentInChildren<TMP_Text>(true);
+            text.text = caption;
+            arrow.gameObject.SetActive(true);
+            return arrow;
+        }
+
+        private static void Adjust(bool dvp, int change)
+        {
+            int value = dvp ? DamageSettings.DvpPercent : DamageSettings.PvpPercent;
+            DamageSettings.Set(dvp, System.Math.Max(0, System.Math.Min(DamagePolicy.Maximum, value + change)));
         }
 
         private void Cycle()
@@ -82,24 +152,69 @@ namespace PvPHelper
             rect.pivot = source.pivot;
             rect.sizeDelta = source.sizeDelta;
             rect.anchoredPosition = source.anchoredPosition + Vector2.up * (source.rect.height + 8f);
+            UpdateDamageRows();
 
             MPButton next = controller.unreadyButton && controller.unreadyButton.gameObject.activeInHierarchy
                 ? controller.unreadyButton : controller.readyButton;
             Navigation nav = readyNavigation;
             nav.mode = Navigation.Mode.Explicit;
             nav.selectOnDown = next;
+            if (decrease[1].interactable || increase[1].interactable)
+                nav.selectOnUp = decrease[1].interactable ? decrease[1] : increase[1];
             button.navigation = nav;
             nav = next == controller.readyButton ? readyNavigation : unreadyNavigation;
             nav.selectOnUp = button;
             next.navigation = nav;
         }
 
+        private void UpdateDamageRows()
+        {
+            float height = Mathf.Min(source.rect.height, 32f) * 2f + 8f;
+            damagePanel.anchorMin = source.anchorMin;
+            damagePanel.anchorMax = source.anchorMax;
+            damagePanel.pivot = source.pivot;
+            damagePanel.sizeDelta = source.sizeDelta;
+            damagePanel.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, height);
+            damagePanel.anchoredPosition = rect.anchoredPosition + Vector2.up *
+                ((1f - rect.pivot.y) * rect.rect.height + damagePanel.pivot.y * height + 8f);
+            for (int i = 0; i < 2; i++)
+            {
+                int value = i == 0 ? DamageSettings.PvpPercent : DamageSettings.DvpPercent;
+                damageLabels[i].text = (i == 0 ? "PVP Damage: " : "DVP Damage: ") + value + "%";
+                decrease[i].interactable = DamageSettings.CanEdit && value > 0;
+                increase[i].interactable = DamageSettings.CanEdit && value < DamagePolicy.Maximum;
+            }
+            for (int i = 0; i < 2; i++)
+            {
+                SetArrowNavigation(decrease[i], increase[i], i, false);
+                SetArrowNavigation(increase[i], decrease[i], i, true);
+            }
+        }
+
+        private void SetArrowNavigation(MPButton arrow, MPButton sibling, int row, bool right)
+        {
+            var nav = readyNavigation;
+            nav.mode = Navigation.Mode.Explicit;
+            if (right) nav.selectOnLeft = sibling.interactable ? sibling : null;
+            else nav.selectOnRight = sibling.interactable ? sibling : null;
+            MPButton up = right ? increase[0] : decrease[0];
+            MPButton down = right ? increase[1] : decrease[1];
+            nav.selectOnUp = row == 0 ? readyNavigation.selectOnUp :
+                up.interactable ? up : (right ? decrease[0] : increase[0]);
+            nav.selectOnDown = row == 1 ? button :
+                down.interactable ? down : (right ? decrease[1] : increase[1]);
+            arrow.navigation = nav;
+        }
+
         private void OnDestroy()
         {
-            if (!button) return;
-            if (controller && controller.readyButton) controller.readyButton.navigation = readyNavigation;
-            if (controller && controller.unreadyButton) controller.unreadyButton.navigation = unreadyNavigation;
-            Destroy(button.gameObject);
+            if (button)
+            {
+                if (controller && controller.readyButton) controller.readyButton.navigation = readyNavigation;
+                if (controller && controller.unreadyButton) controller.unreadyButton.navigation = unreadyNavigation;
+                Destroy(button.gameObject);
+            }
+            if (damagePanel) Destroy(damagePanel.gameObject);
         }
 
         [HarmonyPatch(typeof(CharacterSelectController), "Awake")]
