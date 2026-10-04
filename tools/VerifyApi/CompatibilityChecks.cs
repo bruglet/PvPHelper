@@ -33,5 +33,17 @@ internal static class CompatibilityChecks
                 throw new Exception("Pickup filter changed branch polarity or destination: " + type);
         }
         Console.WriteLine("PASS pickup filter matrix and all six native pickup/gravity hooks");
+        var shrine = new NativeIl(game, "RoR2.GoldSiphonNearbyBodyController", "SearchForPlayers");
+        var shrineOpcodes = shrine.Input.Cast<object>().Select(shrine.Opcode).ToArray();
+        var shrineOutput = shrine.Apply(plugin, "HalcyonPlayers+FindAllPlayerFactions");
+        if (shrineOutput.Length != shrineOpcodes.Length ||
+            shrineOutput.Count(i => shrine.Operand(i) is MethodInfo m && m.Name == "AddPlayerTeams" &&
+                m.DeclaringType?.FullName == "PvPHelper.HalcyonPlayers") != 1 ||
+            shrineOutput.Where((i, index) => shrine.Opcode(i) != shrineOpcodes[index]).Any())
+            throw new Exception("Halcyon search replacement changed native control flow");
+        foreach (string name in new[] { "FilterCandidatesByHurtBoxTeam", "OrderCandidatesByDistance", "FilterCandidatesByDistinctHurtBoxEntities", "GetHurtBoxes" })
+            if (shrineOutput.Count(i => shrine.Operand(i) is MethodInfo m && m.Name == name) != 1)
+                throw new Exception("Halcyon native search behavior lost: " + name);
+        Console.WriteLine("PASS native Halcyon search mask, radius/search behavior and mismatch rejection");
     }
 }
