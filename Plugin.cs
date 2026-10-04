@@ -73,9 +73,14 @@ namespace PvPHelper
 
             Stage stage = Stage.instance;
             SceneDef scene = SceneCatalog.GetSceneDefForCurrentScene();
-            if (!stage || !scene || scene.sceneType != SceneType.Stage ||
-                !stage.stageAdvanceTime.isInfinity)
+            if (!stage || !scene || scene.sceneType != SceneType.Stage)
                 return false;
+
+            // A native exit can take several seconds to extract cash and deliver XP.
+            // Suppress repeated loss checks without creating a second converter or
+            // short-circuiting an already-running normal teleporter/portal exit.
+            if (SceneExitController.isRunning) return true;
+            if (!stage.stageAdvanceTime.isInfinity) return false;
 
             if (!scene.isFinalStage)
             {
@@ -85,8 +90,8 @@ namespace PvPHelper
                 SceneDef next = run.nextStageScene;
                 if (next)
                 {
-                    stage.BeginAdvanceStage(next);
-                    log?.LogInfo($"Party wipe: advancing from {scene.cachedName} to {next.cachedName}.");
+                    WipeStageExit.Begin(stage, next);
+                    log?.LogInfo($"Party wipe: converting cash to XP before advancing from {scene.cachedName} to {next.cachedName}.");
                     return true;
                 }
             }

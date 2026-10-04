@@ -10,7 +10,20 @@ var plugin = AssemblyLoadContext.Default.LoadFromAssemblyPath(Path.GetFullPath(a
 using var pluginModule = Mono.Cecil.ModuleDefinition.ReadModule(Path.GetFullPath(args[0]));
 using var gameModule = Mono.Cecil.ModuleDefinition.ReadModule(Path.Combine(dirs[0], "RoR2.dll"));
 var patches = 0;
-foreach (var typeName in new[] { "PlayerTeams+AssignBeforeBodySpawn", "TeamSelector+AddSelector", "SharedRewards+ShareMoney", "SharedRewards+ShareExperience", "SharedHoldouts+CountAllPlayers", "SharedHoldouts+CountAllPlayersInRadius", "SharedHoldouts+ShowChargeObjective", "SharedHoldouts+ShareFocusedConvergence", "DamageScaling+RejectZeroDamage", "DamageScaling+ScaleCalculatedDamage", "DifficultyScaling+SlowGrowth", "PlayerPickups+AllowPlayerFactions", "HalcyonPlayers+FindAllPlayerFactions", "PlayerItemRules+RecognizePlayerFactions" }) {
+foreach (var typeName in new[] { "Plugin+RememberLastPlayerDeath", "Plugin+ContinueAfterPartyWipe", "PlayerTeams+AssignBeforeBodySpawn", "TeamSelector+AddSelector", "SharedRewards+ShareMoney", "SharedRewards+ShareExperience", "SharedHoldouts+CountAllPlayers", "SharedHoldouts+CountAllPlayersInRadius", "SharedHoldouts+ShowChargeObjective", "SharedHoldouts+ShareFocusedConvergence", "DamageScaling+RejectZeroDamage", "DamageScaling+ScaleCalculatedDamage", "DifficultyScaling+SlowGrowth", "PlayerPickups+AllowPlayerFactions", "HalcyonPlayers+FindAllPlayerFactions", "PlayerItemRules+RecognizePlayerFactions" }) {
+    if (typeName.StartsWith("Plugin+", StringComparison.Ordinal)) {
+        // Resolving Plugin's BaseUnityPlugin base class requires BepInEx's Unity/Mono
+        // runtime. Read these patch attributes from IL instead on the .NET 8 verifier.
+        var patch = pluginModule.Types.Single(t => t.FullName == "PvPHelper.Plugin").NestedTypes.Single(t => t.Name == typeName.Split('+')[1]);
+        var attribute = patch.CustomAttributes.Single(a => a.AttributeType.Name == "HarmonyPatch");
+        var declaring = (Mono.Cecil.TypeReference)attribute.ConstructorArguments[0].Value;
+        var methodName = (string)attribute.ConstructorArguments[1].Value;
+        var targetType = gameModule.Types.Single(t => t.FullName == declaring.FullName);
+        if (!targetType.Methods.Any(m => m.Name == methodName)) throw new Exception("Missing wipe target: " + methodName);
+        Console.WriteLine("PASS hook: " + declaring.FullName + "." + methodName);
+        patches++;
+        continue;
+    }
     var type = plugin.GetType("PvPHelper." + typeName)!;
     var attrs = type.GetCustomAttributes().Where(a => a.GetType().Name == "HarmonyPatch").ToArray();
     if (attrs.Length == 0) continue;
@@ -111,3 +124,4 @@ if (((System.Collections.IList)stateType.GetField("Choices")!.GetValue(RoundTrip
 Console.WriteLine($"PASS {patches} Harmony targets and request/snapshot wire round trips");
 DamageChecks.Run(plugin, gameModule);
 CompatibilityChecks.Run(plugin, gameModule);
+WipeExitChecks.Run(pluginModule, gameModule);
