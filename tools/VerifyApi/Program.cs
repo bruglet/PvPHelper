@@ -10,10 +10,19 @@ var plugin = AssemblyLoadContext.Default.LoadFromAssemblyPath(Path.GetFullPath(a
 using var pluginModule = Mono.Cecil.ModuleDefinition.ReadModule(Path.GetFullPath(args[0]));
 using var gameModule = Mono.Cecil.ModuleDefinition.ReadModule(Path.Combine(dirs[0], "RoR2.dll"));
 var patches = 0;
-foreach (var typeName in new[] { "PlayerTeams+AssignBeforeBodySpawn", "TeamSelector+AddSelector", "SharedRewards+ShareMoney", "SharedRewards+ShareExperience", "SharedHoldouts+CountAllPlayers", "SharedHoldouts+CountAllPlayersInRadius", "SharedHoldouts+ShowChargeObjective", "SharedHoldouts+ShareFocusedConvergence", "DamageScaling+RejectZeroDamage", "DamageScaling+ScaleCalculatedDamage", "DifficultyScaling+SlowGrowth" }) {
+foreach (var typeName in new[] { "PlayerTeams+AssignBeforeBodySpawn", "TeamSelector+AddSelector", "SharedRewards+ShareMoney", "SharedRewards+ShareExperience", "SharedHoldouts+CountAllPlayers", "SharedHoldouts+CountAllPlayersInRadius", "SharedHoldouts+ShowChargeObjective", "SharedHoldouts+ShareFocusedConvergence", "DamageScaling+RejectZeroDamage", "DamageScaling+ScaleCalculatedDamage", "DifficultyScaling+SlowGrowth", "PlayerPickups+AllowPlayerFactions" }) {
     var type = plugin.GetType("PvPHelper." + typeName)!;
     var attrs = type.GetCustomAttributes().Where(a => a.GetType().Name == "HarmonyPatch").ToArray();
     if (attrs.Length == 0) continue;
+    var multiple = type.GetMethod("TargetMethods", BindingFlags.Static | BindingFlags.NonPublic);
+    if (multiple != null) {
+        foreach (MethodBase method in (IEnumerable<MethodBase>)multiple.Invoke(null, null)!) {
+            if (method == null) throw new Exception("Missing target: " + type.FullName);
+            Console.WriteLine("PASS hook: " + method.DeclaringType!.FullName + "." + method.Name);
+            patches++;
+        }
+        continue;
+    }
     MethodBase? target = null;
     var resolver = type.GetMethod("TargetMethod", BindingFlags.Static | BindingFlags.NonPublic);
     if (resolver != null) {
@@ -101,3 +110,4 @@ foreach (var pair in new[] { (50, 15, 25, 75), (0, 200, 0, 0), (200, 0, 200, 100
 if (((System.Collections.IList)stateType.GetField("Choices")!.GetValue(RoundTrip(Activator.CreateInstance(stateType)!))!).Count != 0) throw new Exception("Empty snapshot mismatch");
 Console.WriteLine($"PASS {patches} Harmony targets and request/snapshot wire round trips");
 DamageChecks.Run(plugin, gameModule);
+CompatibilityChecks.Run(plugin, gameModule);
