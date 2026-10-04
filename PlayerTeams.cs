@@ -62,7 +62,7 @@ namespace PvPHelper
             Clear();
         }
 
-        private static void Clear() { serverChoices.Clear(); clientChoices.Clear(); }
+        private static void Clear() { serverChoices.Clear(); clientChoices.Clear(); DamageSettings.Reset(); }
         private static void StartServer() => NetworkServer.RegisterHandler(RequestId, ReceiveRequest);
         private static void StartClient(NetworkClient client) => client.RegisterHandler(StateId, ReceiveState);
 
@@ -116,9 +116,9 @@ namespace PvPHelper
             Broadcast();
         }
 
-        private static void Broadcast()
+        internal static void Broadcast()
         {
-            var state = new StateMessage();
+            var state = new StateMessage { PvpPercent = DamageSettings.PvpPercent, DvpPercent = DamageSettings.DvpPercent };
             foreach (NetworkUser user in NetworkUser.readOnlyInstancesList)
                 state.Choices.Add(new ChoiceMessage { User = user.netId, Choice = GetChoice(user) });
             NetworkServer.SendToAll(StateId, state);
@@ -127,6 +127,7 @@ namespace PvPHelper
         private static void ReceiveState(NetworkMessage message)
         {
             StateMessage state = message.ReadMessage<StateMessage>();
+            DamageSettings.Receive(state.PvpPercent, state.DvpPercent);
             clientChoices.Clear();
             foreach (ChoiceMessage choice in state.Choices)
                 if (choice.Choice < Teams.Length) clientChoices[choice.User] = choice.Choice;
@@ -168,14 +169,20 @@ namespace PvPHelper
 
         public sealed class StateMessage : MessageBase
         {
+            public ushort PvpPercent = DamagePolicy.DefaultPvp;
+            public ushort DvpPercent = DamagePolicy.DefaultDvp;
             public readonly List<ChoiceMessage> Choices = new List<ChoiceMessage>();
             public override void Serialize(NetworkWriter writer)
             {
+                writer.Write(PvpPercent);
+                writer.Write(DvpPercent);
                 writer.Write((ushort)Choices.Count);
                 foreach (ChoiceMessage choice in Choices) choice.Serialize(writer);
             }
             public override void Deserialize(NetworkReader reader)
             {
+                PvpPercent = reader.ReadUInt16();
+                DvpPercent = reader.ReadUInt16();
                 Choices.Clear();
                 int count = reader.ReadUInt16();
                 for (int i = 0; i < count; i++) { var choice = new ChoiceMessage(); choice.Deserialize(reader); Choices.Add(choice); }
