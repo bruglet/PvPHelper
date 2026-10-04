@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.4.0
+
+- Added host-controlled PVP Damage and DVP Damage arrow selectors in the survivor lobby.
+- Defaulted PVP to 50% and DVP to 15%, with 0–200% adjustment in 5-point steps.
+- Applied PVP to player → player, player → catalog drone, and catalog drone → catalog drone damage across colors.
+- Applied DVP to AI catalog drone → player damage; remote-controlled drones count as players.
+- Kept Engineer turrets outside the catalog-only drone classification.
+- Synchronized settings with the lobby snapshot and locked edits when launching.
+- Scaled damage before defenses without mutating proc inputs or scaling delayed installments again.
+- Added damage matrix, settings serialization, and native transpiler checks; live gameplay testing is pending.
+
 ## 0.3.0
 
 - Added synchronized Red, Blue, Green, and Yellow player teams.
