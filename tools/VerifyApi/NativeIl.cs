@@ -10,6 +10,7 @@ internal sealed class NativeIl
     private readonly FieldInfo opcode;
     private readonly FieldInfo labels;
     internal IList Input { get; }
+    private readonly MethodInfo target;
 
     internal NativeIl(ModuleDefinition game, string typeName, string methodName)
     {
@@ -20,6 +21,7 @@ internal sealed class NativeIl
         var native = game.Types.Single(t => t.FullName == typeName).Methods.Single(m => m.Name == methodName);
         var runtime = Assembly.Load("RoR2").GetType(typeName)!.GetMethod(methodName,
             BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static)!;
+        target = runtime;
         var module = runtime.Module;
         var generator = new DynamicMethod("NativeHookCheck", typeof(void), Type.EmptyTypes).GetILGenerator();
         var locals = runtime.GetMethodBody()!.LocalVariables.Select(l => generator.DeclareLocal(l.LocalType, l.IsPinned)).ToArray();
@@ -52,14 +54,16 @@ internal sealed class NativeIl
     {
         var transpiler = plugin.GetType("PvPHelper." + patchName)!.GetMethod("Transpiler", BindingFlags.NonPublic | BindingFlags.Static)!;
         var originalLabels = Input.Cast<object>().SelectMany(i => ((IList)labels.GetValue(i)!).Cast<Label>()).ToArray();
-        var output = ((IEnumerable)transpiler.Invoke(null, new object[] { Input })!).Cast<object>().ToArray();
+        object[] args = transpiler.GetParameters().Length == 1 ? new object[] { Input } : new object[] { Input, target };
+        var output = ((IEnumerable)transpiler.Invoke(null, args)!).Cast<object>().ToArray();
         var patchedLabels = output.SelectMany(i => ((IList)labels.GetValue(i)!).Cast<Label>()).ToArray();
         if (patchedLabels.Length != originalLabels.Length || originalLabels.Any(l => patchedLabels.Count(p => p.Equals(l)) != 1))
             throw new Exception("Native hook lost branch labels: " + patchName);
         try
         {
             var empty = Activator.CreateInstance(typeof(List<>).MakeGenericType(instructionType))!;
-            ((IEnumerable)transpiler.Invoke(null, new[] { empty })!).Cast<object>().ToArray();
+            args[0] = empty;
+            ((IEnumerable)transpiler.Invoke(null, args)!).Cast<object>().ToArray();
             throw new Exception("Native hook accepted an unexpected shape: " + patchName);
         }
         catch (InvalidOperationException) { }

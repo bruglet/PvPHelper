@@ -45,5 +45,27 @@ internal static class CompatibilityChecks
             if (shrineOutput.Count(i => shrine.Operand(i) is MethodInfo m && m.Name == name) != 1)
                 throw new Exception("Halcyon native search behavior lost: " + name);
         Console.WriteLine("PASS native Halcyon search mask, radius/search behavior and mismatch rejection");
+        var classify = plugin.GetType("PvPHelper.PlayerItemRules")!.GetMethod("ForPlayerCheck", BindingFlags.Static | BindingFlags.NonPublic)!;
+        for (int value = -1; value <= 8; value++)
+        {
+            object actual = classify.Invoke(null, new[] { Enum.ToObject(team, value) })!;
+            object expected = Enum.ToObject(team, value >= 5 ? 1 : value);
+            if (!Equals(actual, expected)) throw new Exception("Item player classification mismatch: " + value);
+        }
+        foreach (var (type, method, count) in new[] { ("CharacterBody", "RecalculateStats", 5),
+            ("GlobalEventManager", "ProcessHitEnemy", 1), ("UnlockPickup", "OnTriggerStay", 1) })
+        {
+            var il = new NativeIl(game, "RoR2." + type, method);
+            var output = il.Apply(plugin, "PlayerItemRules+RecognizePlayerFactions");
+            var calls = Enumerable.Range(0, output.Length).Where(i => il.Operand(output[i]) is MethodInfo m &&
+                m.Name == "ForPlayerCheck" && m.DeclaringType?.FullName == "PvPHelper.PlayerItemRules").ToArray();
+            if (calls.Length != count || output.Length != il.Input.Count + count)
+                throw new Exception("Item hook count mismatch: " + method);
+            foreach (int i in calls)
+                if (il.Operand(output[i - 1]) is not MethodInfo getter || getter.Name != "get_teamIndex" ||
+                    getter.DeclaringType?.FullName != "RoR2.TeamComponent" || il.Opcode(output[i + 1]) != OpCodes.Ldc_I4_1)
+                    throw new Exception("Item hook changed a non-player comparison: " + method);
+        }
+        Console.WriteLine("PASS native Prayer Beads/Glass, Chronic Expansion and unlock player checks");
     }
 }
