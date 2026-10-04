@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.6.3
+
+- Gave each connected player the price of two standard small chests on their first body spawn in each gameplay stage, across all player factions.
+- Used the native $25 base price and difficulty-scaled cost function with the stage-entry difficulty snapshot, including the Monster Scaling setting.
+- Added the grant to existing legitimate cash through native money handling; Longstanding Solitude retains its normal cash-to-XP behavior.
+- Prevented repeat grants from same-stage revives, body changes, and remote-operation respawns; excluded non-stage scenes and summons.
+- Added grant amount, currency overflow, native pricing/lifecycle, and per-stage guard checks. Live gameplay verification is pending.
+
 ## 0.6.2
 
 - Routed party-wipe stage travel through native cash-to-XP extraction before advancing, clearing player balances with vanilla conversion and rounding.
