@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.6.1
+
+- Allowed Antlers shards and vanilla Player-filtered health, ammo, buff, and money pickups to accept every player faction, including their pickup attraction.
+- Preserved explicit team filters for Monster Tooth heal packs, Chef food, and other team-specific pickups.
+- Expanded Halcyon Shrine's player search to all player factions, restoring eligibility for native gold draining and encounter progression.
+- Restored Prayer Beads bonuses, Glass, Chronic Expansion's player-target exclusion, and unlock pickups for custom player teams.
+- Changed AI catalog drone → catalog drone damage to DVP (15% default); player → drone and turret ↔ drone still use PVP.
+- Added native pickup, shrine, and item-rule hook checks and an audit report. Live verification of these fixes is pending.
+
 ## 0.6.0
 
 - Capped each player → player hit at two-thirds of maximum HP plus maximum shields after defenses; remote-controlled drones count as players.
