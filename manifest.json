@@ -1,0 +1,9 @@
+{
+  "name": "PvPHelper",
+  "version_number": "0.2.0",
+  "website_url": "https://github.com/bruglet/PvPHelper",
+  "description": "Tweaks and changes for easy PvP gameplay",
+  "dependencies": [
+    "bbepis-BepInExPack-5.4.2122"
+  ]
+}

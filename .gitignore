@@ -1,0 +1,25 @@
+# Build output and local IDE state
+bin/
+obj/
+.vs/
+.vscode/
+*.user
+*.suo
+
+# Game libraries, dependencies, and release archives
+*.dll
+*.pdb
+*.zip
+BepInEx/
+
+# Local logs and credentials
+*.log
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Operating system files
+.DS_Store
+Thumbs.db
