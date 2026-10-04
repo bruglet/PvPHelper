@@ -10,7 +10,7 @@ var plugin = AssemblyLoadContext.Default.LoadFromAssemblyPath(Path.GetFullPath(a
 using var pluginModule = Mono.Cecil.ModuleDefinition.ReadModule(Path.GetFullPath(args[0]));
 using var gameModule = Mono.Cecil.ModuleDefinition.ReadModule(Path.Combine(dirs[0], "RoR2.dll"));
 var patches = 0;
-foreach (var typeName in new[] { "PlayerTeams+AssignBeforeBodySpawn", "TeamSelector+AddSelector", "SharedRewards+ShareMoney", "SharedRewards+ShareExperience", "SharedHoldouts+CountAllPlayers", "SharedHoldouts+CountAllPlayersInRadius", "SharedHoldouts+ShowChargeObjective", "SharedHoldouts+ShareFocusedConvergence" }) {
+foreach (var typeName in new[] { "PlayerTeams+AssignBeforeBodySpawn", "TeamSelector+AddSelector", "SharedRewards+ShareMoney", "SharedRewards+ShareExperience", "SharedHoldouts+CountAllPlayers", "SharedHoldouts+CountAllPlayersInRadius", "SharedHoldouts+ShowChargeObjective", "SharedHoldouts+ShareFocusedConvergence", "DamageScaling+RejectZeroDamage", "DamageScaling+ScaleCalculatedDamage" }) {
     var type = plugin.GetType("PvPHelper." + typeName)!;
     var attrs = type.GetCustomAttributes().Where(a => a.GetType().Name == "HarmonyPatch").ToArray();
     if (attrs.Length == 0) continue;
@@ -79,5 +79,17 @@ var result = RoundTrip(snapshot);
 var copyList = (System.Collections.IList)stateType.GetField("Choices")!.GetValue(result)!;
 if (copyList.Count != 4) throw new Exception("Snapshot count mismatch");
 for (byte i = 0; i < 4; i++) AssertChoice(copyList[i]!, (uint)(i + 100), i);
+foreach (var pair in new[] { (50, 15), (0, 200), (200, 0), (85, 35) }) {
+    stateType.GetField("PvpPercent")!.SetValue(snapshot, (ushort)pair.Item1);
+    stateType.GetField("DvpPercent")!.SetValue(snapshot, (ushort)pair.Item2);
+    var copy = RoundTrip(snapshot);
+    if ((ushort)stateType.GetField("PvpPercent")!.GetValue(copy)! != pair.Item1 ||
+        (ushort)stateType.GetField("DvpPercent")!.GetValue(copy)! != pair.Item2)
+        throw new Exception("Damage settings wire round trip mismatch");
+    var choices = (System.Collections.IList)stateType.GetField("Choices")!.GetValue(copy)!;
+    if (choices.Count != 4) throw new Exception("Settings corrupted team snapshot");
+    for (byte i = 0; i < 4; i++) AssertChoice(choices[i]!, (uint)(i + 100), i);
+}
 if (((System.Collections.IList)stateType.GetField("Choices")!.GetValue(RoundTrip(Activator.CreateInstance(stateType)!))!).Count != 0) throw new Exception("Empty snapshot mismatch");
 Console.WriteLine($"PASS {patches} Harmony targets and request/snapshot wire round trips");
+DamageChecks.Run(plugin, gameModule);
