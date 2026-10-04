@@ -10,7 +10,7 @@ var plugin = AssemblyLoadContext.Default.LoadFromAssemblyPath(Path.GetFullPath(a
 using var pluginModule = Mono.Cecil.ModuleDefinition.ReadModule(Path.GetFullPath(args[0]));
 using var gameModule = Mono.Cecil.ModuleDefinition.ReadModule(Path.Combine(dirs[0], "RoR2.dll"));
 var patches = 0;
-foreach (var typeName in new[] { "Plugin+RememberLastPlayerDeath", "Plugin+ContinueAfterPartyWipe", "PlayerTeams+AssignBeforeBodySpawn", "TeamSelector+AddSelector", "SharedRewards+ShareMoney", "SharedRewards+ShareExperience", "SharedHoldouts+CountAllPlayers", "SharedHoldouts+CountAllPlayersInRadius", "SharedHoldouts+ShowChargeObjective", "SharedHoldouts+ShareFocusedConvergence", "DamageScaling+RejectZeroDamage", "DamageScaling+ScaleCalculatedDamage", "DifficultyScaling+SlowGrowth", "PlayerPickups+AllowPlayerFactions", "HalcyonPlayers+FindAllPlayerFactions", "PlayerItemRules+RecognizePlayerFactions" }) {
+foreach (var typeName in new[] { "Plugin+RememberLastPlayerDeath", "Plugin+ContinueAfterPartyWipe", "PlayerTeams+AssignBeforeBodySpawn", "TeamSelector+AddSelector", "SharedRewards+ShareMoney", "SharedRewards+ShareExperience", "SharedHoldouts+CountAllPlayers", "SharedHoldouts+CountAllPlayersInRadius", "SharedHoldouts+ShowChargeObjective", "SharedHoldouts+ShareFocusedConvergence", "DamageScaling+RejectZeroDamage", "DamageScaling+ScaleCalculatedDamage", "DifficultyScaling+SlowGrowth", "PlayerPickups+AllowPlayerFactions", "HalcyonPlayers+FindAllPlayerFactions", "PlayerItemRules+RecognizePlayerFactions", "StageStartingMoney+FundStageEntry" }) {
     if (typeName.StartsWith("Plugin+", StringComparison.Ordinal)) {
         // Resolving Plugin's BaseUnityPlugin base class requires BepInEx's Unity/Mono
         // runtime. Read these patch attributes from IL instead on the .NET 8 verifier.
@@ -125,3 +125,4 @@ Console.WriteLine($"PASS {patches} Harmony targets and request/snapshot wire rou
 DamageChecks.Run(plugin, gameModule);
 CompatibilityChecks.Run(plugin, gameModule);
 WipeExitChecks.Run(pluginModule, gameModule);
+StageMoneyChecks.Run(plugin, pluginModule, gameModule);

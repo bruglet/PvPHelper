@@ -28,6 +28,7 @@ namespace PvPHelper
         {
             harmony?.UnpatchSelf();
             PlayerTeams.Shutdown();
+            StageStartingMoney.Reset();
         }
 
         [HarmonyPatch(typeof(CharacterMaster), nameof(CharacterMaster.OnBodyDeath), new[] { typeof(CharacterBody) })]
