@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.0
+
+- Added synchronized Red, Blue, Green, and Yellow player teams.
+- Added a native team selector above Ready on the survivor selection screen.
+- Kept owned summons on their owner's team and retained choices through respawns.
+- Shared vanilla kill money and XP across all player factions.
+- Enabled teleporter and player holdout charging across factions, including objectives and Focused Convergence.
+- Required R2API Teams and matching installs on every participant.
+- Added API and network message checks; live multiplayer testing is pending.
+
 ## 0.2.0
 
 - Renamed PvPStageSaver to PvPHelper.

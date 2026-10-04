@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <BepInExCoreDir Condition="'$(BepInExCoreDir)' == ''">$(HOME)/Games/Steam/steamapps/common/Risk of Rain 2/BepInEx/core</BepInExCoreDir>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="Mono.Cecil">
+      <HintPath>$(BepInExCoreDir)/Mono.Cecil.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+</Project>
