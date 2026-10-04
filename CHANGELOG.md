@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.6.2
+
+- Routed party-wipe stage travel through native cash-to-XP extraction before advancing, clearing player balances with vanilla conversion and rounding.
+- Kept converted XP shared across every player faction and waited for native XP delivery before travel.
+- Prevented repeated loss checks from starting another conversion or skipping an existing exit.
+- Forced extraction for wipe-initiated travel even when the keep-money rule is enabled; normal exits and no-destination revival retain their existing behavior.
+- Added wipe-hook and native exit/converter contract checks. Live solo and multiplayer wipe tests are pending.
+
 ## 0.6.1
 
 - Allowed Antlers shards and vanilla Player-filtered health, ammo, buff, and money pickups to accept every player faction, including their pickup attraction.

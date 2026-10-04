@@ -6,7 +6,7 @@ using UnityEngine.Networking;
 
 namespace PvPHelper
 {
-    [BepInPlugin(Guid, "PvPHelper", "0.6.1")]
+    [BepInPlugin(Guid, "PvPHelper", "0.6.2")]
     [BepInDependency(R2API.TeamsAPI.PluginGUID)]
     public sealed class Plugin : BaseUnityPlugin
     {

@@ -39,7 +39,7 @@ Players in every faction contribute to player holdout zones, including the telep
 
 The mod also keeps a Risk of Rain 2 run active after a full party wipe.
 
-On a normal stage, the mod advances to the next destination when every player body is dead. The game then handles the usual stage transition. If the stage has no destination, the mod revives the last player who died. The revived player gets the game's brief extra-life protection.
+On a normal stage, when every connected player is defeated, the mod starts the native cash-to-XP exit sequence before advancing to the next destination. The game drains every player balance using vanilla burst conversion, player-count division, and rounding, including dead players without bodies. The existing shared-XP hook awards the resulting XP equally to all player factions. Stage travel waits for extraction and the normal XP-delivery/teleport delay, so it takes several seconds rather than advancing immediately. Repeated loss checks keep that exit running without converting twice. Wipe-initiated travel always extracts cash, even with the keep-money rule enabled; normal teleporter/portal exits keep their native rules. New-stage item grants remain native, but cash from the wiped stage is no longer carried over. If the stage has no destination, the mod revives the last player who died. The revived player gets the game's brief extra-life protection.
 
 There are no added kill bonuses, AI targeting rules, PvP timers, drone limits, or winner rules. Native hostility between distinct teams applies.
 
@@ -74,7 +74,9 @@ Use a separate profile. Record the game build, mod versions, and host/client log
 
 Version 0.5.0 was tested in game and confirmed working by the user. 11. Test Antlers shards, Monster Tooth heal packs, Bandolier ammo packs, buff/money pickups, attraction, Prayer Beads bonuses after removal, Glass, Chronic Expansion on enemies versus players, and unlock pickups for every color. Test Halcyon draining with mixed teams, insufficient money, every tier, golems, rewards, and portals. Use the [audit acceptance checklist](docs/team-compatibility-audit.md) for details.
 
-Version 0.6.1 has passed compilation, API/wire-format checks, damage policy and scaling checks, and execution of both transpilers against supplied native IL. Live gameplay verification of the new cap, scaling control, and compatibility fixes is still pending; the checks above are the acceptance checklist.
+12. Give players uneven cash balances across different colors and wipe before activating the teleporter. Confirm the native exit drains each balance, awards shared XP using vanilla burst rounding, and respawns everyone with no carried-over cash. Wait through repeated loss-check intervals and confirm one exit/conversion. Repeat solo, with a host/client, with zero cash, after death bodies have disappeared, and with the keep-money rule enabled. Recheck normal teleporter/portal exits and the no-destination revival fallback. Distinguish fresh native item grants from carried-over money.
+
+Version 0.6.2 has passed compilation, API/wire-format checks, damage policy and scaling checks, and execution of both transpilers against supplied native IL. Live gameplay verification of the new cap, scaling control, compatibility fixes, and wipe cash conversion is still pending; the checks above are the acceptance checklist.
 
 If the game does not advance, open the BepInEx log in the host's profile folder. Search for `PvPHelper`, `Party wipe`, and `Standard loss was not intercepted`.
 
@@ -93,7 +95,7 @@ The plugin DLL appears in `bin/Release/netstandard2.1/`.
 
 This release builds against Steam game build `21587608` and BepInExPack `5.4.2122`. Rebuild the mod after a game update that changes the RoR2 API.
 
-The .NET 8 verification tool resolves the twenty-one feature Harmony targets against the supplied game assembly, checks the Focused Convergence IL call shape, and round-trips actual UNet requests and snapshots, including damage/scaling settings and percentage boundaries. It tests the actual damage policy for the complete actor matrix, remote-control precedence, exclusions, and valid percentages. It also checks the cap scope and numeric limits, monster scaling defaults and both growth inputs. It executes the compiled damage and difficulty transpilers on the supplied game instructions, checking insertion order, branch-label preservation, and rejection of an unexpected game shape. It also executes the pickup, Halcyon, and item-rule transpilers on native IL and checks pickup-filter eligibility. It does not start Unity or replace gameplay testing:
+The .NET 8 verification tool resolves the twenty-three feature Harmony targets against the supplied game assembly, checks the Focused Convergence IL call shape, and round-trips actual UNet requests and snapshots, including damage/scaling settings and percentage boundaries. It tests the actual damage policy for the complete actor matrix, remote-control precedence, exclusions, and valid percentages. It also checks the cap scope and numeric limits, monster scaling defaults and both growth inputs. It executes the compiled damage and difficulty transpilers on the supplied game instructions, checking insertion order, branch-label preservation, and rejection of an unexpected game shape. It also executes the pickup, Halcyon, and item-rule transpilers on native IL and checks pickup-filter eligibility. The wipe checks inspect the compiled exit sequence and native converter contract, including dead-master XP and extraction-before-travel order. It does not start Unity or replace gameplay testing:
 
 ```bash
 dotnet run --project tools/VerifyApi \
