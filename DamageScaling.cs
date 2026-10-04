@@ -11,7 +11,11 @@ namespace PvPHelper
     internal static class DamageScaling
     {
         private static DamageActor Classify(CharacterBody body) => DamagePolicy.Classify(body.isPlayerControlled,
-            !body.isPlayerControlled && DroneCatalog.GetDroneIndexFromBodyIndex(body.bodyIndex) != DroneIndex.None);
+            !body.isPlayerControlled && DroneCatalog.GetDroneIndexFromBodyIndex(body.bodyIndex) != DroneIndex.None,
+            !body.isPlayerControlled && IsEngineerTurret(body.bodyIndex));
+
+        private static bool IsEngineerTurret(BodyIndex index) => index != BodyIndex.None &&
+            (index == BodyCatalog.FindBodyIndex("EngiTurretBody") || index == BodyCatalog.FindBodyIndex("EngiWalkerTurretBody"));
 
         private static int PercentFor(DamageInfo info, HealthComponent victim)
         {
@@ -20,7 +24,8 @@ namespace PvPHelper
             if (!attacker || !attacker.teamComponent) return 100;
             return DamagePolicy.GetPercent(Classify(attacker), Classify(victim.body),
                 PlayerTeams.IsPlayerTeam(attacker.teamComponent.teamIndex) && PlayerTeams.IsPlayerTeam(victim.body.teamComponent.teamIndex),
-                attacker == victim.body, info.delayedDamageSecondHalf, DamageSettings.PvpPercent, DamageSettings.DvpPercent);
+                attacker == victim.body, info.delayedDamageSecondHalf, DamageSettings.PvpPercent, DamageSettings.DvpPercent,
+                DamageSettings.EngiTurretPercent);
         }
 
         private static float ScaleDamage(float damage, DamageInfo info, HealthComponent victim) =>

@@ -14,28 +14,47 @@ internal static class DamageChecks
         MethodInfo classify = policy.GetMethod("Classify", flags)!;
         MethodInfo percent = policy.GetMethod("GetPercent", flags)!;
         MethodInfo valid = policy.GetMethod("IsValidPercent", flags)!;
-        object player = Enum.Parse(actor, "Player"), drone = Enum.Parse(actor, "Drone"), other = Enum.Parse(actor, "Other");
+        object player = Enum.Parse(actor, "Player"), drone = Enum.Parse(actor, "Drone"),
+            turret = Enum.Parse(actor, "EngineerTurret"), other = Enum.Parse(actor, "Other");
         void Equal(object? actual, object expected, string description)
         {
             if (!Equals(actual, expected)) throw new Exception(description + $": expected {expected}, got {actual}");
         }
-        int Get(object a, object v, bool teams = true, bool self = false, bool delayed = false, int pvp = 50, int dvp = 15) =>
-            (int)percent.Invoke(null, new[] { a, v, teams, self, delayed, pvp, dvp })!;
+        int Get(object a, object v, bool teams = true, bool self = false, bool delayed = false, int pvp = 50, int dvp = 15, int engi = 25) =>
+            (int)percent.Invoke(null, new[] { a, v, teams, self, delayed, pvp, dvp, engi })!;
 
-        Equal(classify.Invoke(null, new object[] { true, false }), player, "Survivor identity");
-        Equal(classify.Invoke(null, new object[] { false, true }), drone, "Catalog drone identity");
-        object remote = classify.Invoke(null, new object[] { true, true })!;
+        Equal(classify.Invoke(null, new object[] { true, false, false }), player, "Survivor identity");
+        Equal(classify.Invoke(null, new object[] { false, true, false }), drone, "Catalog drone identity");
+        Equal(classify.Invoke(null, new object[] { false, false, true }), turret, "Engineer turret identity");
+        Equal(classify.Invoke(null, new object[] { false, true, true }), turret, "Engineer turret wins over catalog overlap");
+        Equal(classify.Invoke(null, new object[] { true, true, true }), player, "Human control wins over turret identity");
+        object remote = classify.Invoke(null, new object[] { true, true, false })!;
         Equal(remote, player, "Remote control must win over drone identity");
-        Equal(classify.Invoke(null, new object[] { false, false }), other, "Engineer turret/other body stays outside catalog rules");
+        Equal(classify.Invoke(null, new object[] { false, false, false }), other, "Other bodies stay outside the rules");
         // The expected matrix is the requested behavior, independent of the implementation.
-        object[] actors = { player, drone, other };
-        int[,] expected = { { 50, 50, 100 }, { 15, 50, 100 }, { 100, 100, 100 } };
+        object[] actors = { player, drone, turret, other };
+        int[,] expected = { { 50, 50, 50, 100 }, { 15, 50, 50, 100 }, { 25, 50, 100, 100 }, { 100, 100, 100, 100 } };
         for (int a = 0; a < actors.Length; a++)
             for (int v = 0; v < actors.Length; v++) Equal(Get(actors[a], actors[v]), expected[a, v], $"{actors[a]} -> {actors[v]}");
         Equal(Get(remote, player), 50, "Remote drone outgoing PVP");
         Equal(Get(drone, remote), 15, "Remote drone incoming DVP");
         Equal(Get(remote, drone), 50, "Remote drone -> AI drone PVP");
         Equal(Get(remote, remote), 50, "Remote -> remote PVP");
+        Equal(Get(turret, remote), 25, "Turret -> remote player uses Engi Turret");
+        Equal(Get(remote, turret), 50, "Remote player -> turret uses PVP");
+        Equal(Get(turret, player, pvp: 85, dvp: 35, engi: 40), 40, "Turret -> player follows configured Engi Turret");
+        Equal(Get(player, turret, pvp: 85, engi: 40), 85, "Player -> turret follows PVP");
+        Equal(Get(drone, turret, pvp: 85, dvp: 35, engi: 40), 85, "Drone -> turret follows PVP");
+        Equal(Get(turret, drone, pvp: 85, engi: 40), 85, "Turret -> drone follows PVP");
+        Equal(Get(turret, turret, pvp: 85, engi: 40), 100, "Turret -> turret retains native damage");
+        Equal(Get(turret, other, engi: 0), 100, "Turret -> enemy retains native damage");
+        Equal(Get(other, turret, pvp: 0, engi: 0), 100, "Enemy -> turret retains native damage");
+        Equal(Get(turret, player, teams: false, engi: 0), 100, "Enemy-team turret -> player retains native damage");
+        Equal(Get(player, turret, teams: false, pvp: 0), 100, "Player -> enemy-team turret retains native damage");
+        Equal(Get(turret, player, delayed: true, engi: 0), 100, "Turret delayed installments must not scale twice");
+        Equal(Get(turret, player, engi: 0), 0, "Engi Turret off");
+        Equal(Get(turret, player, engi: 200), 200, "Engi Turret maximum");
+        Equal(Get(turret, drone, engi: 0), 50, "Engi Turret off does not block turret -> drone");
         Equal(Get(drone, drone, pvp: 85, dvp: 35), 85, "Drone -> drone follows configured PVP");
         Equal(Get(drone, player, pvp: 85, dvp: 35), 35, "Drone -> player follows configured DVP");
         Equal(Get(player, drone, pvp: 85, dvp: 35), 85, "Player -> drone follows configured PVP");
@@ -46,8 +65,20 @@ internal static class DamageChecks
         Equal(Get(player, player, pvp: 0), 0, "PVP off");
         Equal(Get(drone, player, dvp: 0), 0, "DVP off");
         Equal(Get(player, player, pvp: 200), 200, "PVP maximum");
-        foreach (int value in new[] { 0, 15, 50, 100, 200 }) Equal(valid.Invoke(null, new object[] { value }), true, "Valid percentage");
+        foreach (int value in new[] { 0, 15, 25, 50, 100, 200 }) Equal(valid.Invoke(null, new object[] { value }), true, "Valid percentage");
         foreach (int value in new[] { -5, 1, 201, 205, 65535 }) Equal(valid.Invoke(null, new object[] { value }), false, "Invalid percentage");
+        Type settings = plugin.GetType("PvPHelper.DamageSettings")!;
+        Type setting = plugin.GetType("PvPHelper.DamageSetting")!;
+        MethodInfo getSetting = settings.GetMethod("Get", flags)!;
+        Equal(getSetting.Invoke(null, new[] { Enum.Parse(setting, "Pvp") }), (ushort)50, "PVP setting default");
+        Equal(getSetting.Invoke(null, new[] { Enum.Parse(setting, "Dvp") }), (ushort)15, "DVP setting default");
+        Equal(getSetting.Invoke(null, new[] { Enum.Parse(setting, "EngiTurret") }), (ushort)25, "Engi Turret setting default");
+        foreach (string property in new[] { "PvpPercent", "DvpPercent", "EngiTurretPercent" })
+            settings.GetProperty(property, flags)!.GetSetMethod(true)!.Invoke(null, new object[] { (ushort)200 });
+        settings.GetMethod("Reset", flags)!.Invoke(null, null);
+        Equal(getSetting.Invoke(null, new[] { Enum.Parse(setting, "Pvp") }), (ushort)50, "Fresh-session PVP default");
+        Equal(getSetting.Invoke(null, new[] { Enum.Parse(setting, "Dvp") }), (ushort)15, "Fresh-session DVP default");
+        Equal(getSetting.Invoke(null, new[] { Enum.Parse(setting, "EngiTurret") }), (ushort)25, "Fresh-session Engi Turret default");
         Console.WriteLine("PASS damage matrix, remote-control precedence, exclusions and percentage bounds");
 
         VerifyTranspiler(plugin, game);

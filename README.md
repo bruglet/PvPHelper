@@ -6,7 +6,7 @@ Source repository: [bruglet/PvPHelper](https://github.com/bruglet/PvPHelper).
 
 Choose **Red, Blue, Green, or Yellow** using the native **TEAM** button above Ready on the survivor selection screen. Click it to cycle through the colors. Each local player chooses independently; the host validates and synchronizes the choices. Red is the default. Choices apply to the next run and persist through death, respawns, stage travel, and reconnecting to the same session. Teams cannot be changed during a run. Owned summons inherit their owner's team.
 
-The host can also change **PVP Damage** and **DVP Damage** using the native arrow buttons above TEAM. Each setting runs from **0% to 200%** in **5-point steps**. Everyone sees the same settings, including players joining later. Editing locks when the launch countdown begins, and the selected values apply throughout the run. A new network session starts at PVP **50%** and DVP **15%**.
+The host can also change **PVP Damage**, **DVP Damage**, and **Engi Turret** using the native arrow buttons above TEAM. Each setting runs from **0% to 200%** in **5-point steps**. Everyone sees the same settings, including players joining later. Editing locks when the launch countdown begins, and the selected values apply throughout the run. A new network session starts at PVP **50%**, DVP **15%**, and Engi Turret **25%**.
 
 | Attack between player factions | Setting | Default |
 | --- | --- | --- |
@@ -14,8 +14,12 @@ The host can also change **PVP Damage** and **DVP Damage** using the native arro
 | Player → catalog drone | PVP Damage | 50% |
 | Catalog drone → catalog drone | PVP Damage | 50% |
 | Catalog drone → player | DVP Damage | 15% |
+| Engineer turret → player | Engi Turret | 25% |
+| Player → Engineer turret | PVP Damage | 50% |
+| Engineer turret ↔ catalog drone | PVP Damage | 50% |
+| Engineer turret ↔ enemy | Native damage | 100% |
 
-The same rules cover every color pairing. A human-controlled remote-operation drone counts as a **player** on both sides of the table: it deals PVP damage to players and catalog drones, takes DVP damage from AI catalog drones, and takes PVP damage from players. Drone detection uses only `DroneCatalog`; purchased Gunner Turrets qualify, while Engineer's stationary and walking turrets retain their existing damage rules.
+The same rules cover every color pairing. A human-controlled remote-operation drone counts as a **player** on both sides of the table: it deals PVP damage to players, catalog drones, and Engineer turrets; takes DVP damage from AI catalog drones; takes Engi Turret damage from Engineer turrets; and takes PVP damage from players. Drone detection uses only `DroneCatalog`; purchased Gunner Turrets qualify. Engineer's stationary and walking turrets form a separate category identified by `EngiTurretBody` and `EngiWalkerTurretBody`. Engi Turret changes only their attacks against players. Their interactions with catalog drones and incoming player damage follow the PVP setting; turret → turret and enemy interactions retain native damage.
 
 The multiplier applies to calculated attack damage before armor, flat reduction, and protection caps. Critical hits, offensive bonuses, percentage-health attacks, and ordinary damage-over-time ticks use the setting; delayed installments of already-scaled damage do not apply it again. Original hit data used to generate item procs is preserved. **100%** retains the normal numeric damage calculation; **0%** rejects matching damaging hits and suppresses their subsequent normal on-hit processing. Instant-kill and direct-death mechanics at nonzero percentages, monster interactions, self-damage, and hits whose attacker can no longer be identified retain native behavior. Friendly-fire eligibility also stays native; choosing a percentage does not enable same-team attacks.
 
@@ -51,11 +55,11 @@ Use a separate profile. Record the game build, mod versions, and host/client log
 3. Test uneven team sizes (for example, two Red and one Blue). Kill a monster with each faction and an owned summon. Each vanilla-eligible player should receive the same rounded vanilla share of money once, regardless of faction. All factions should gain the same vanilla XP and levels. Check Prayer Beads, XP orbs, death, and stage-end money conversion. Compare against an otherwise matching vanilla run.
 4. Activate a teleporter from each color. Move different combinations into and out of its radius and check normal charging, the HUD objective, and Focused Convergence. Verify remote-operation drones do not charge, matching vanilla. Check another player holdout zone as well.
 5. Let all players die before the teleporter starts. Confirm stage travel, respawning with items and the selected teams, and the final-stage revival fallback. Complete a teleporter normally and confirm normal travel.
-6. Verify **PVP Damage** and **DVP Damage** on mouse and controller, including 0%, 100%, and 200%, rapid edits, Ready/Unready, and launch countdown locking. Only the host can edit; remote clients and late joiners must display the host's values. Start a fresh session and confirm the defaults return.
-7. Test the damage table across every opposing color pair with survivors, AI catalog drones, purchased Gunner Turrets, and remote-operation bodies as both attackers and victims. Confirm drone → drone follows PVP, and confirm Engineer turrets and monster interactions keep their native damage. Use matching setups at 100% for comparison, accounting for armor, damage floors, and protection caps.
+6. Verify **PVP Damage**, **DVP Damage**, and **Engi Turret** on mouse and controller, including 0%, 100%, and 200%, rapid edits, Ready/Unready, and launch countdown locking. Only the host can edit; remote clients and late joiners must display all three host values. Start a fresh session and confirm the defaults return.
+7. Test the damage table across every opposing color pair with survivors, AI catalog drones, purchased Gunner Turrets, both Engineer turret types, and remote-operation bodies as both attackers and victims. Confirm drone → drone follows PVP. Check Engineer turret → player at 25% and another configured value, player → turret and turret ↔ drone following PVP, and turret ↔ enemy retaining native damage. Repeat against remote-controlled players. Use matching setups at 100% for comparison, accounting for armor, damage floors, and protection caps.
 8. Test melee, bullets, mixed-target explosions, crits, Expose, percentage-health attacks, armor bypass, calculation bypass, DoTs, item proc chains, shields/barrier, and delayed damage. Delayed damage must not be multiplied again; 0% must block matching damaging hits. Recheck the reward and teleporter scenarios after changing damage settings.
 
-Version 0.4.0 has passed compilation, the API/wire-format checks, the damage policy checks, and execution of the damage transpiler against the supplied native IL. Live UI and multiplayer gameplay verification is still pending; the checks above are the acceptance checklist.
+Version 0.5.0 has passed compilation, the API/wire-format checks, the damage policy checks, and execution of the damage transpiler against the supplied native IL. Live UI and multiplayer gameplay verification is still pending; the checks above are the acceptance checklist.
 
 If the game does not advance, open the BepInEx log in the host's profile folder. Search for `PvPHelper`, `Party wipe`, and `Standard loss was not intercepted`.
 

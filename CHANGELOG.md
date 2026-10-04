@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.0
+
+- Added the host-controlled Engi Turret lobby selector, defaulting to 25%.
+- Applied Engi Turret to stationary and walking Engineer turret → player damage across colors, including remote-controlled players.
+- Applied PVP to player → Engineer turret and Engineer turret ↔ catalog drone damage.
+- Retained native damage for Engineer turret ↔ enemy and turret → turret interactions.
+- Synchronized the third setting with lobby snapshots and extended damage/serialization checks.
+
 ## 0.4.0
 
 - Added host-controlled PVP Damage and DVP Damage arrow selectors in the survivor lobby.

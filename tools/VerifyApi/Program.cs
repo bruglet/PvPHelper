@@ -79,12 +79,16 @@ var result = RoundTrip(snapshot);
 var copyList = (System.Collections.IList)stateType.GetField("Choices")!.GetValue(result)!;
 if (copyList.Count != 4) throw new Exception("Snapshot count mismatch");
 for (byte i = 0; i < 4; i++) AssertChoice(copyList[i]!, (uint)(i + 100), i);
-foreach (var pair in new[] { (50, 15), (0, 200), (200, 0), (85, 35) }) {
+if ((ushort)stateType.GetField("EngiTurretPercent")!.GetValue(snapshot)! != 25)
+    throw new Exception("Engineer turret default mismatch");
+foreach (var pair in new[] { (50, 15, 25), (0, 200, 0), (200, 0, 200), (85, 35, 40) }) {
     stateType.GetField("PvpPercent")!.SetValue(snapshot, (ushort)pair.Item1);
     stateType.GetField("DvpPercent")!.SetValue(snapshot, (ushort)pair.Item2);
+    stateType.GetField("EngiTurretPercent")!.SetValue(snapshot, (ushort)pair.Item3);
     var copy = RoundTrip(snapshot);
     if ((ushort)stateType.GetField("PvpPercent")!.GetValue(copy)! != pair.Item1 ||
-        (ushort)stateType.GetField("DvpPercent")!.GetValue(copy)! != pair.Item2)
+        (ushort)stateType.GetField("DvpPercent")!.GetValue(copy)! != pair.Item2 ||
+        (ushort)stateType.GetField("EngiTurretPercent")!.GetValue(copy)! != pair.Item3)
         throw new Exception("Damage settings wire round trip mismatch");
     var choices = (System.Collections.IList)stateType.GetField("Choices")!.GetValue(copy)!;
     if (choices.Count != 4) throw new Exception("Settings corrupted team snapshot");

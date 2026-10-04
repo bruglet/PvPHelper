@@ -16,9 +16,10 @@ namespace PvPHelper
         private RectTransform source = null!;
         private RectTransform rect = null!;
         private RectTransform damagePanel = null!;
-        private readonly MPButton[] decrease = new MPButton[2];
-        private readonly MPButton[] increase = new MPButton[2];
-        private readonly TMP_Text[] damageLabels = new TMP_Text[2];
+        private static readonly string[] damageNames = { "PVP Damage", "DVP Damage", "Engi Turret" };
+        private readonly MPButton[] decrease = new MPButton[damageNames.Length];
+        private readonly MPButton[] increase = new MPButton[damageNames.Length];
+        private readonly TMP_Text[] damageLabels = new TMP_Text[damageNames.Length];
         private Navigation readyNavigation;
         private Navigation unreadyNavigation;
         private NetworkUser? requestingUser;
@@ -72,19 +73,19 @@ namespace PvPHelper
             damagePanel = (RectTransform)new GameObject("PvPHelperDamageSettings", typeof(RectTransform), typeof(LayoutElement)).transform;
             damagePanel.SetParent(source.parent, false);
             damagePanel.GetComponent<LayoutElement>().ignoreLayout = true;
-            for (int i = 0; i < 2; i++)
+            for (int i = 0; i < damageNames.Length; i++)
             {
-                bool dvp = i == 1;
-                var row = (RectTransform)new GameObject(dvp ? "DVP Damage" : "PVP Damage", typeof(RectTransform)).transform;
+                DamageSetting setting = (DamageSetting)i;
+                var row = (RectTransform)new GameObject(damageNames[i], typeof(RectTransform)).transform;
                 row.SetParent(damagePanel, false);
-                row.anchorMin = new Vector2(0f, dvp ? 0f : .5f);
-                row.anchorMax = new Vector2(1f, dvp ? .5f : 1f);
+                row.anchorMin = new Vector2(0f, 1f - (i + 1f) / damageNames.Length);
+                row.anchorMax = new Vector2(1f, 1f - (float)i / damageNames.Length);
                 row.offsetMin = new Vector2(0f, 2f);
                 row.offsetMax = new Vector2(0f, -2f);
                 decrease[i] = CreateArrow(row, "Decrease", "<", 0f, .16f);
                 increase[i] = CreateArrow(row, "Increase", ">", .84f, 1f);
-                decrease[i].onClick.AddListener(() => Adjust(dvp, -DamagePolicy.Step));
-                increase[i].onClick.AddListener(() => Adjust(dvp, DamagePolicy.Step));
+                decrease[i].onClick.AddListener(() => Adjust(setting, -DamagePolicy.Step));
+                increase[i].onClick.AddListener(() => Adjust(setting, DamagePolicy.Step));
 
                 var text = new GameObject("Value", typeof(RectTransform), typeof(TextMeshProUGUI)).GetComponent<TextMeshProUGUI>();
                 text.transform.SetParent(row, false);
@@ -119,10 +120,10 @@ namespace PvPHelper
             return arrow;
         }
 
-        private static void Adjust(bool dvp, int change)
+        private static void Adjust(DamageSetting setting, int change)
         {
-            int value = dvp ? DamageSettings.DvpPercent : DamageSettings.PvpPercent;
-            DamageSettings.Set(dvp, System.Math.Max(0, System.Math.Min(DamagePolicy.Maximum, value + change)));
+            int value = DamageSettings.Get(setting);
+            DamageSettings.Set(setting, System.Math.Max(0, System.Math.Min(DamagePolicy.Maximum, value + change)));
         }
 
         private void Cycle()
@@ -159,8 +160,9 @@ namespace PvPHelper
             Navigation nav = readyNavigation;
             nav.mode = Navigation.Mode.Explicit;
             nav.selectOnDown = next;
-            if (decrease[1].interactable || increase[1].interactable)
-                nav.selectOnUp = decrease[1].interactable ? decrease[1] : increase[1];
+            int last = damageNames.Length - 1;
+            if (decrease[last].interactable || increase[last].interactable)
+                nav.selectOnUp = decrease[last].interactable ? decrease[last] : increase[last];
             button.navigation = nav;
             nav = next == controller.readyButton ? readyNavigation : unreadyNavigation;
             nav.selectOnUp = button;
@@ -169,7 +171,7 @@ namespace PvPHelper
 
         private void UpdateDamageRows()
         {
-            float height = Mathf.Min(source.rect.height, 32f) * 2f + 8f;
+            float height = (Mathf.Min(source.rect.height, 32f) + 4f) * damageNames.Length;
             damagePanel.anchorMin = source.anchorMin;
             damagePanel.anchorMax = source.anchorMax;
             damagePanel.pivot = source.pivot;
@@ -177,14 +179,14 @@ namespace PvPHelper
             damagePanel.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, height);
             damagePanel.anchoredPosition = rect.anchoredPosition + Vector2.up *
                 ((1f - rect.pivot.y) * rect.rect.height + damagePanel.pivot.y * height + 8f);
-            for (int i = 0; i < 2; i++)
+            for (int i = 0; i < damageNames.Length; i++)
             {
-                int value = i == 0 ? DamageSettings.PvpPercent : DamageSettings.DvpPercent;
-                damageLabels[i].text = (i == 0 ? "PVP Damage: " : "DVP Damage: ") + value + "%";
+                int value = DamageSettings.Get((DamageSetting)i);
+                damageLabels[i].text = damageNames[i] + ": " + value + "%";
                 decrease[i].interactable = DamageSettings.CanEdit && value > 0;
                 increase[i].interactable = DamageSettings.CanEdit && value < DamagePolicy.Maximum;
             }
-            for (int i = 0; i < 2; i++)
+            for (int i = 0; i < damageNames.Length; i++)
             {
                 SetArrowNavigation(decrease[i], increase[i], i, false);
                 SetArrowNavigation(increase[i], decrease[i], i, true);
@@ -197,12 +199,18 @@ namespace PvPHelper
             nav.mode = Navigation.Mode.Explicit;
             if (right) nav.selectOnLeft = sibling.interactable ? sibling : null;
             else nav.selectOnRight = sibling.interactable ? sibling : null;
-            MPButton up = right ? increase[0] : decrease[0];
-            MPButton down = right ? increase[1] : decrease[1];
-            nav.selectOnUp = row == 0 ? readyNavigation.selectOnUp :
-                up.interactable ? up : (right ? decrease[0] : increase[0]);
-            nav.selectOnDown = row == 1 ? button :
-                down.interactable ? down : (right ? decrease[1] : increase[1]);
+            if (row == 0) nav.selectOnUp = readyNavigation.selectOnUp;
+            else
+            {
+                MPButton up = right ? increase[row - 1] : decrease[row - 1];
+                nav.selectOnUp = up.interactable ? up : (right ? decrease[row - 1] : increase[row - 1]);
+            }
+            if (row == damageNames.Length - 1) nav.selectOnDown = button;
+            else
+            {
+                MPButton down = right ? increase[row + 1] : decrease[row + 1];
+                nav.selectOnDown = down.interactable ? down : (right ? decrease[row + 1] : increase[row + 1]);
+            }
             arrow.navigation = nav;
         }
 
