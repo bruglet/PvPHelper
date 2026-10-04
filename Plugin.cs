@@ -6,7 +6,8 @@ using UnityEngine.Networking;
 
 namespace PvPHelper
 {
-    [BepInPlugin(Guid, "PvPHelper", "0.2.0")]
+    [BepInPlugin(Guid, "PvPHelper", "0.5.0")]
+    [BepInDependency(R2API.TeamsAPI.PluginGUID)]
     public sealed class Plugin : BaseUnityPlugin
     {
         public const string Guid = "com.brug.pvphelper";
@@ -18,6 +19,7 @@ namespace PvPHelper
         private void Awake()
         {
             log = Logger;
+            PlayerTeams.Initialize();
             harmony = new Harmony(Guid);
             harmony.PatchAll(typeof(Plugin).Assembly);
         }
@@ -25,6 +27,7 @@ namespace PvPHelper
         private void OnDestroy()
         {
             harmony?.UnpatchSelf();
+            PlayerTeams.Shutdown();
         }
 
         [HarmonyPatch(typeof(CharacterMaster), nameof(CharacterMaster.OnBodyDeath), new[] { typeof(CharacterBody) })]

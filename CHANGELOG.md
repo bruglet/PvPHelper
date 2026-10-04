@@ -1,5 +1,34 @@
 # Changelog
 
+## 0.5.0
+
+- Added the host-controlled Engi Turret lobby selector, defaulting to 25%.
+- Applied Engi Turret to stationary and walking Engineer turret → player damage across colors, including remote-controlled players.
+- Applied PVP to player → Engineer turret and Engineer turret ↔ catalog drone damage.
+- Retained native damage for Engineer turret ↔ enemy and turret → turret interactions.
+- Synchronized the third setting with lobby snapshots and extended damage/serialization checks.
+
+## 0.4.0
+
+- Added host-controlled PVP Damage and DVP Damage arrow selectors in the survivor lobby.
+- Defaulted PVP to 50% and DVP to 15%, with 0–200% adjustment in 5-point steps.
+- Applied PVP to player → player, player → catalog drone, and catalog drone → catalog drone damage across colors.
+- Applied DVP to AI catalog drone → player damage; remote-controlled drones count as players.
+- Kept Engineer turrets outside the catalog-only drone classification.
+- Synchronized settings with the lobby snapshot and locked edits when launching.
+- Scaled damage before defenses without mutating proc inputs or scaling delayed installments again.
+- Added damage matrix, settings serialization, and native transpiler checks; live gameplay testing is pending.
+
+## 0.3.0
+
+- Added synchronized Red, Blue, Green, and Yellow player teams.
+- Added a native team selector above Ready on the survivor selection screen.
+- Kept owned summons on their owner's team and retained choices through respawns.
+- Shared vanilla kill money and XP across all player factions.
+- Enabled teleporter and player holdout charging across factions, including objectives and Focused Convergence.
+- Required R2API Teams and matching installs on every participant.
+- Added API and network message checks; live multiplayer testing is pending.
+
 ## 0.2.0
 
 - Renamed PvPStageSaver to PvPHelper.
