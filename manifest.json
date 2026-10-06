@@ -1,6 +1,6 @@
 {
   "name": "PvPHelper",
-  "version_number": "0.6.3",
+  "version_number": "0.6.4",
   "website_url": "https://github.com/bruglet/PvPHelper",
   "description": "Tweaks and changes for easy PvP gameplay",
   "dependencies": [

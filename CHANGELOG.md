@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.4
+
+- Assigned new lobby players to the least-populated active team, choosing Red, Blue, Green, then Yellow when equally populated.
+- Separated the first four players by default and balanced additional players across the four teams; manual same-team selections remain available.
+- Preserved saved choices for reconnects and repeated user-start notifications while excluding departed players from new-player occupancy counts.
+- Added default-allocation checks. Live lobby verification is pending.
+
 ## 0.6.3
 
 - Gave each connected player the price of two standard small chests on their first body spawn in each gameplay stage, across all player factions.
