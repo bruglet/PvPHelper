@@ -121,6 +121,31 @@ foreach (var pair in new[] { (50, 15, 25, 75), (0, 200, 0, 0), (200, 0, 200, 100
     for (byte i = 0; i < 4; i++) AssertChoice(choices[i]!, (uint)(i + 100), i);
 }
 if (((System.Collections.IList)stateType.GetField("Choices")!.GetValue(RoundTrip(Activator.CreateInstance(stateType)!))!).Count != 0) throw new Exception("Empty snapshot mismatch");
+var defaultTeam = plugin.GetType("PvPHelper.PlayerTeams")!.GetMethod("PickDefaultTeam", BindingFlags.NonPublic | BindingFlags.Static)!;
+byte PickTeam(IEnumerable<byte> activeChoices) => (byte)defaultTeam.Invoke(null, new object[] { activeChoices })!;
+var arrivals = new List<byte>();
+for (int i = 0; i < 12; i++) {
+    byte next = PickTeam(arrivals);
+    if (next != i % 4) throw new Exception("Fresh lobby defaults must separate the first four players and balance later arrivals");
+    arrivals.Add(next);
+}
+foreach (var example in new[] {
+    (new byte[] { 0, 0 }, (byte)1), // Manual same-team choices leave Blue free.
+    (new byte[] { 0, 2, 3 }, (byte)1), // A departure frees Blue for a new arrival.
+    (new byte[] { 0, 0, 1, 2, 3 }, (byte)1), // Choose the least-populated occupied team.
+    (new byte[] { 3, 3 }, (byte)0), // Color order resolves equal populations.
+    (new byte[] { 255 }, (byte)0)
+}) {
+    if (PickTeam(example.Item1) != example.Item2) throw new Exception("Lobby default must respect active occupancy and manual choices");
+}
+var teamModule = pluginModule.Types.Single(t => t.FullName == "PvPHelper.PlayerTeams");
+var joined = teamModule.Methods.Single(m => m.Name == "UserStarted");
+var joinedCalls = joined.Body.Instructions.Select(i => i.Operand).OfType<Mono.Cecil.MethodReference>().ToArray();
+if (!joinedCalls.Any(m => m.Name == "ContainsKey") || !joinedCalls.Any(m => m.Name == "PickDefaultTeam") ||
+    !joined.Body.Instructions.Any(i => i.Operand is Mono.Cecil.FieldReference f && f.DeclaringType.FullName == "RoR2.NetworkUser" && f.Name == "readOnlyInstancesList") ||
+    joinedCalls.Any(m => m.Name == "get_Values"))
+    throw new Exception("Defaults must preserve stored choices and count only active network users");
+Console.WriteLine("PASS lobby defaults: separate first four players, balance extras, honor manual occupancy and exclude departed users");
 Console.WriteLine($"PASS {patches} Harmony targets and request/snapshot wire round trips");
 DamageChecks.Run(plugin, gameModule);
 CompatibilityChecks.Run(plugin, gameModule);

@@ -70,11 +70,30 @@ namespace PvPHelper
         {
             if (NetworkServer.active)
             {
-                if (!serverChoices.ContainsKey(user.id)) serverChoices[user.id] = 0;
+                if (!serverChoices.ContainsKey(user.id))
+                {
+                    // Count active users rather than saved choices: departed users
+                    // keep their reconnect preference without reserving a color.
+                    var activeChoices = new List<byte>();
+                    foreach (NetworkUser active in NetworkUser.readOnlyInstancesList)
+                        if (active && serverChoices.TryGetValue(active.id, out byte choice)) activeChoices.Add(choice);
+                    serverChoices[user.id] = PickDefaultTeam(activeChoices);
+                }
                 if (user.master) Apply(user.master);
                 Broadcast();
             }
             if (user.isLocalPlayer && !NetworkServer.active) Send(user, Query);
+        }
+
+        internal static byte PickDefaultTeam(IEnumerable<byte> activeChoices)
+        {
+            var counts = new int[Teams.Length];
+            foreach (byte choice in activeChoices)
+                if (choice < counts.Length) counts[choice]++;
+            byte best = 0;
+            for (byte i = 1; i < counts.Length; i++)
+                if (counts[i] < counts[best]) best = i;
+            return best;
         }
 
         internal static byte GetChoice(NetworkUser user)
